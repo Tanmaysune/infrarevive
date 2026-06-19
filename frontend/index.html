@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Student Result Portal - InfraRevive</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 80px auto;
+      text-align: center;
+      background: #f0f4f8;
+    }
+    h1 { color: #2c3e50; }
+    input {
+      padding: 10px;
+      width: 300px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      background: #3498db;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+    button:hover { background: #2980b9; }
+    #result {
+      margin-top: 30px;
+      font-size: 20px;
+      color: #27ae60;
+      font-weight: bold;
+    }
+    #error { color: #e74c3c; }
+  </style>
+</head>
+<body>
+  <h1>Student Result Portal</h1>
+  <p>Powered by InfraRevive — Auto-Healing Infrastructure</p>
+  <div>
+    <input id="name" type="text" placeholder="Enter student name (e.g. Alice)" />
+    <button onclick="getResult()">Search</button>
+  </div>
+  <div id="result"></div>
+
+  <script>
+    // This calls the Flask API via the NodePort service
+    // The FLASK_API_URL will be replaced by the actual IP during deployment
+    const API_URL = window.FLASK_API_URL || 'http://localhost:5000';
+
+    function getResult() {
+      const name = document.getElementById('name').value.trim();
+      if (!name) {
+        document.getElementById('result').innerHTML = '<span id="error">Please enter a name</span>';
+        return;
+      }
+
+      document.getElementById('result').innerText = 'Searching...';
+
+      fetch(`${API_URL}/result/${name}`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.error) {
+            document.getElementById('result').innerHTML = `<span id="error">${d.error}</span>`;
+          } else {
+            document.getElementById('result').innerText = `${d.name} scored ${d.marks} marks`;
+          }
+        })
+        .catch(() => {
+          document.getElementById('result').innerHTML = '<span id="error">Cannot connect to API. Check backend.</span>';
+        });
+    }
+
+    // Allow pressing Enter
+    document.getElementById('name').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') getResult();
+    });
+  </script>
+</body>
+</html>
