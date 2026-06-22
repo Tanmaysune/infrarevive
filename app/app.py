@@ -53,6 +53,8 @@ def init_db():
         cursor.execute("INSERT IGNORE INTO students (name, marks) VALUES ('Alice', 92)")
         cursor.execute("INSERT IGNORE INTO students (name, marks) VALUES ('Bob', 78)")
         cursor.execute("INSERT IGNORE INTO students (name, marks) VALUES ('Charlie', 85)")
+        cursor.execute("INSERT IGNORE INTO students (name, marks) VALUES ('Diana', 95)")
+        cursor.execute("INSERT IGNORE INTO students (name, marks) VALUES ('Eve', 88)")
         db.commit()
         cursor.close()
         db.close()

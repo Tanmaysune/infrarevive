@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_USERNAME = 'YOUR_DOCKERHUB_USERNAME'
+        DOCKERHUB_USERNAME = 'sune21tanmay'
         IMAGE_API          = "${DOCKERHUB_USERNAME}/infrarevive-api"
         IMAGE_FRONT        = "${DOCKERHUB_USERNAME}/infrarevive-frontend"
         TAG                = "${env.BUILD_NUMBER}"
@@ -14,28 +14,23 @@ pipeline {
 
         stage('Checkout Code') {
             steps {
-                echo "Pulling code from GitHub..."
                 git branch: 'main',
-                    url: 'https://github.com/YOUR_GITHUB_USERNAME/infrarevive.git'
+                    url: 'https://github.com/Tanmaysune/infrarevive.git'
                 echo "Code checked out at build ${TAG}"
             }
         }
 
         stage('Build Docker Images') {
             steps {
-                echo "Building Flask API image..."
                 sh "docker build -t ${IMAGE_API}:${TAG} -t ${IMAGE_API}:latest ./app"
-
-                echo "Building NGINX frontend image..."
                 sh "docker build -t ${IMAGE_FRONT}:${TAG} -t ${IMAGE_FRONT}:latest ./frontend"
             }
         }
 
         stage('Test Application') {
             steps {
-                echo "Running basic container test..."
                 sh """
-                    docker run --rm --name test-flask-${TAG} \
+                    docker run --rm \
                         -e DB_HOST=localhost \
                         ${IMAGE_API}:${TAG} \
                         python -c "import app; print('Flask app import: OK')"
@@ -45,7 +40,6 @@ pipeline {
 
         stage('Push Images to Docker Hub') {
             steps {
-                echo "Logging into Docker Hub and pushing images..."
                 withCredentials([usernamePassword(
                     credentialsId: 'dockerhub-credentials',
                     usernameVariable: 'DOCKER_USER',
@@ -57,13 +51,11 @@ pipeline {
                     sh "docker push ${IMAGE_FRONT}:${TAG}"
                     sh "docker push ${IMAGE_FRONT}:latest"
                 }
-                echo "Images pushed: ${IMAGE_API}:${TAG} and ${IMAGE_FRONT}:${TAG}"
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                echo "Deploying to Kubernetes cluster..."
                 sh """
                     export KUBECONFIG=${KUBECONFIG_PATH}
                     kubectl set image deployment/flask-api \
@@ -72,49 +64,28 @@ pipeline {
                     kubectl set image deployment/frontend \
                         frontend=${IMAGE_FRONT}:${TAG} \
                         -n ${NAMESPACE}
-                """
-
-                echo "Waiting for rollout to complete..."
-                sh """
-                    export KUBECONFIG=${KUBECONFIG_PATH}
                     kubectl rollout status deployment/flask-api -n ${NAMESPACE} --timeout=120s
                     kubectl rollout status deployment/frontend -n ${NAMESPACE} --timeout=120s
-                """
-
-                echo "Verifying pods are running..."
-                sh """
-                    export KUBECONFIG=${KUBECONFIG_PATH}
                     kubectl get pods -n ${NAMESPACE} -o wide
                     kubectl get services -n ${NAMESPACE}
                 """
             }
         }
-
     }
 
     post {
         success {
-            echo "=== DEPLOYMENT SUCCESSFUL ==="
-            echo "Version ${TAG} is now live on Kubernetes."
-            sh """
-                export KUBECONFIG=${KUBECONFIG_PATH}
-                kubectl get pods -n ${NAMESPACE}
-            """
+            echo "=== DEPLOYMENT SUCCESSFUL === Version ${TAG} is live."
         }
-
         failure {
-            echo "=== DEPLOYMENT FAILED — Rolling back to previous version ==="
             sh """
                 export KUBECONFIG=${KUBECONFIG_PATH}
                 kubectl rollout undo deployment/flask-api -n ${NAMESPACE} || true
                 kubectl rollout undo deployment/frontend -n ${NAMESPACE} || true
-                kubectl rollout status deployment/flask-api -n ${NAMESPACE} --timeout=60s || true
             """
-            echo "Rollback complete. Previous version restored."
+            echo "=== DEPLOY FAILED — Rolled back to previous version ==="
         }
-
         always {
-            echo "Cleaning up local Docker images..."
             sh "docker rmi ${IMAGE_API}:${TAG} || true"
             sh "docker rmi ${IMAGE_FRONT}:${TAG} || true"
         }

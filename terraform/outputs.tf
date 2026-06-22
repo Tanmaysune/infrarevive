@@ -15,5 +15,5 @@ output "worker_public_ips" {
 
 output "worker_instance_ids" {
   value       = aws_instance.k8s_workers[*].id
-  description = "Worker node instance IDs (needed for recovery targeting)"
+  description = "Worker node instance IDs"
 }

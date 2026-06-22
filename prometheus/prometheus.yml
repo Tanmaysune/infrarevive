@@ -20,14 +20,11 @@ scrape_configs:
     static_configs:
       - targets:
           - 'MASTER_IP:9100'
+          - 'WORKER0_IP:9100'
           - 'WORKER1_IP:9100'
           - 'WORKER2_IP:9100'
-          - 'WORKER3_IP:9100'
-    relabel_configs:
-      - source_labels: [__address__]
-        target_label: instance
 
   - job_name: 'flask-api'
     metrics_path: '/health'
     static_configs:
-      - targets: ['WORKER1_IP:30500']
+      - targets: ['WORKER0_IP:30500']

@@ -47,21 +47,15 @@
     <button onclick="getResult()">Search</button>
   </div>
   <div id="result"></div>
-
   <script>
-    // This calls the Flask API via the NodePort service
-    // The FLASK_API_URL will be replaced by the actual IP during deployment
     const API_URL = window.FLASK_API_URL || 'http://localhost:5000';
-
     function getResult() {
       const name = document.getElementById('name').value.trim();
       if (!name) {
         document.getElementById('result').innerHTML = '<span id="error">Please enter a name</span>';
         return;
       }
-
       document.getElementById('result').innerText = 'Searching...';
-
       fetch(`${API_URL}/result/${name}`)
         .then(r => r.json())
         .then(d => {
@@ -75,11 +69,9 @@
           document.getElementById('result').innerHTML = '<span id="error">Cannot connect to API. Check backend.</span>';
         });
     }
-
-    // Allow pressing Enter
     document.getElementById('name').addEventListener('keypress', function(e) {
       if (e.key === 'Enter') getResult();
     });
   </script>
 </body>
-</html>
+</html> 

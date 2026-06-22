@@ -18,7 +18,7 @@ groups:
         labels:
           severity: warning
         annotations:
-          summary: "High CPU usage on {{ $labels.instance }}"
+          summary: "High CPU on {{ $labels.instance }}"
           description: "CPU usage above 85% for 2 minutes."
 
       - alert: NodeHighMemory

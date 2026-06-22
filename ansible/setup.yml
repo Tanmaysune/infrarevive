@@ -134,22 +134,19 @@
         systemctl start node_exporter
         systemctl enable node_exporter
 
-    # -------------------------------------------------------
-    # DRIFT ENFORCEMENT — replaces Puppet on master
-    # -------------------------------------------------------
-    - name: Ensure Docker is always running on master
+    - name: Ensure Docker is always running on master (drift check)
       service:
         name: docker
         state: started
         enabled: yes
 
-    - name: Ensure kubelet is always running on master
+    - name: Ensure kubelet is always running on master (drift check)
       service:
         name: kubelet
         state: started
         enabled: yes
 
-    - name: Ensure node_exporter is always running on master
+    - name: Ensure node_exporter is always running on master (drift check)
       service:
         name: node_exporter
         state: started
@@ -268,22 +265,19 @@
         systemctl start node_exporter
         systemctl enable node_exporter
 
-    # -------------------------------------------------------
-    # DRIFT ENFORCEMENT — replaces Puppet on workers
-    # -------------------------------------------------------
-    - name: Ensure Docker is always running on worker
+    - name: Ensure Docker is always running on worker (drift check)
       service:
         name: docker
         state: started
         enabled: yes
 
-    - name: Ensure kubelet is always running on worker
+    - name: Ensure kubelet is always running on worker (drift check)
       service:
         name: kubelet
         state: started
         enabled: yes
 
-    - name: Ensure node_exporter is always running on worker
+    - name: Ensure node_exporter is always running on worker (drift check)
       service:
         name: node_exporter
         state: started

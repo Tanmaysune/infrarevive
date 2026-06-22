@@ -1,11 +1,8 @@
-# Flask API Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: flask-api
   namespace: infrarevive
-  labels:
-    app: flask-api
 spec:
   replicas: 2
   selector:
@@ -23,7 +20,7 @@ spec:
     spec:
       containers:
         - name: flask-api
-          image: YOUR_DOCKERHUB_USERNAME/infrarevive-api:latest
+          image: sune21tanmay/infrarevive-api:latest
           ports:
             - containerPort: 5000
           env:
@@ -54,14 +51,11 @@ spec:
               memory: "256Mi"
               cpu: "500m"
 ---
-# NGINX Frontend Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend
   namespace: infrarevive
-  labels:
-    app: frontend
 spec:
   replicas: 2
   selector:
@@ -74,7 +68,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: YOUR_DOCKERHUB_USERNAME/infrarevive-frontend:latest
+          image: sune21tanmay/infrarevive-frontend:latest
           ports:
             - containerPort: 80
           resources:
@@ -85,14 +79,11 @@ spec:
               memory: "128Mi"
               cpu: "200m"
 ---
-# MySQL Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: mysql
   namespace: infrarevive
-  labels:
-    app: mysql
 spec:
   replicas: 1
   selector:
