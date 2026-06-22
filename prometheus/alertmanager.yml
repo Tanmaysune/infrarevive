@@ -1,0 +1,57 @@
+global:
+  smtp_smarthost: 'smtp-relay.brevo.com:587'
+  smtp_from: 'shuhari.noti@gmail.com'
+  smtp_auth_username: 'shuhari.noti@gmail.com'
+  smtp_auth_password: 'BREVO_SMTP_KEY_PLACEHOLDER'
+  smtp_require_tls: true
+  resolve_timeout: 5m
+
+route:
+  group_by: ['alertname', 'instance']
+  group_wait: 10s
+  group_interval: 1m
+  repeat_interval: 2h
+  receiver: 'email-and-jenkins'
+  routes:
+    - match:
+        severity: critical
+      receiver: 'email-and-jenkins'
+    - match:
+        severity: warning
+      receiver: 'email-only'
+
+receivers:
+  - name: 'email-and-jenkins'
+    email_configs:
+      - to: 'atinku14@yahoo.com'
+        from: 'shuhari.noti@gmail.com'
+        send_resolved: true
+        headers:
+          subject: >-
+            {{ if eq .Status "firing" }}🔴 CRITICAL: SERVER DOWN{{ else }}🟢 RESOLVED: SERVER RESTORED{{ end }} - InfraRevive
+        body: |
+          Alert Status  : {{ .Status | toUpper }}
+          Alert Name    : {{ range .Alerts }}{{ .Labels.alertname }}{{ end }}
+          Instance      : {{ range .Alerts }}{{ .Labels.instance }}{{ end }}
+          Summary       : {{ range .Alerts }}{{ .Annotations.summary }}{{ end }}
+          Description   : {{ range .Alerts }}{{ .Annotations.description }}{{ end }}
+          Time          : {{ range .Alerts }}{{ .StartsAt }}{{ end }}
+
+          InfraRevive Recovery Pipeline triggered automatically.
+          No human action needed.
+
+    webhook_configs:
+      - url: 'http://JENKINS_IP:8080/generic-webhook-trigger/invoke?token=INFRAREVIVE_RECOVERY_TOKEN'
+        send_resolved: false
+
+  - name: 'email-only'
+    email_configs:
+      - to: 'atinku14@yahoo.com'
+        from: 'shuhari.noti@gmail.com'
+        send_resolved: true
+        headers:
+          subject: '⚠️ WARNING: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }} - InfraRevive'
+        body: |
+          Warning Alert
+          Instance : {{ range .Alerts }}{{ .Labels.instance }}{{ end }}
+          Details  : {{ range .Alerts }}{{ .Annotations.description }}{{ end }}
