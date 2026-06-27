@@ -2,10 +2,10 @@ pipeline {
     agent any
 
     environment {
-        KUBECONFIG_PATH   = "/home/ec2-user/.kube/config"
+        KUBECONFIG_PATH   = "/var/lib/jenkins/.kube/config"
         NAMESPACE         = "infrarevive"
         TERRAFORM_DIR     = "${WORKSPACE}/terraform"
-        SSH_KEY           = "/home/ec2-user/.ssh/infrarevive-key.pem"
+        SSH_KEY           = "/var/lib/jenkins/.ssh/infrarevive-key.pem"
     }
 
     stages {
