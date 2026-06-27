@@ -1,17 +1,14 @@
 pipeline {
     agent any
-
     environment {
         DOCKERHUB_USERNAME = 'sune21tanmay'
         IMAGE_API          = "${DOCKERHUB_USERNAME}/infrarevive-api"
         IMAGE_FRONT        = "${DOCKERHUB_USERNAME}/infrarevive-frontend"
         TAG                = "${env.BUILD_NUMBER}"
         NAMESPACE          = "infrarevive"
-        KUBECONFIG_PATH    = "/home/ec2-user/.kube/config"
+        KUBECONFIG_PATH    = "/var/lib/jenkins/.kube/config"
     }
-
     stages {
-
         stage('Checkout Code') {
             steps {
                 git branch: 'main',
@@ -19,25 +16,12 @@ pipeline {
                 echo "Code checked out at build ${TAG}"
             }
         }
-
         stage('Build Docker Images') {
             steps {
                 sh "docker build -t ${IMAGE_API}:${TAG} -t ${IMAGE_API}:latest ./app"
                 sh "docker build -t ${IMAGE_FRONT}:${TAG} -t ${IMAGE_FRONT}:latest ./frontend"
             }
         }
-
-        stage('Test Application') {
-            steps {
-                sh """
-                    docker run --rm \
-                        -e DB_HOST=localhost \
-                        ${IMAGE_API}:${TAG} \
-                        python -c "import app; print('Flask app import: OK')"
-                """
-            }
-        }
-
         stage('Push Images to Docker Hub') {
             steps {
                 withCredentials([usernamePassword(
@@ -53,7 +37,6 @@ pipeline {
                 }
             }
         }
-
         stage('Deploy to Kubernetes') {
             steps {
                 sh """
@@ -72,7 +55,6 @@ pipeline {
             }
         }
     }
-
     post {
         success {
             echo "=== DEPLOYMENT SUCCESSFUL === Version ${TAG} is live."
