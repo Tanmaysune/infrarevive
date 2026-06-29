@@ -1,7 +1,7 @@
 global:
   smtp_smarthost: 'smtp-relay.brevo.com:587'
-  smtp_from: 'shuhari.noti@gmail.com'
-  smtp_auth_username: 'shuhari.noti@gmail.com'
+  smtp_from: 'tanmay.icasd@gmail.com'
+  smtp_auth_username: 'tanmay.icasd@gmail.com'
   smtp_auth_password: 'BREVO_SMTP_KEY_PLACEHOLDER'
   smtp_require_tls: true
   resolve_timeout: 5m
@@ -23,8 +23,8 @@ route:
 receivers:
   - name: 'email-and-jenkins'
     email_configs:
-      - to: 'atinku14@yahoo.com'
-        from: 'shuhari.noti@gmail.com'
+      - to: 'tanmay.icasd@gmail.com'
+        from: 'tanmay.icasd@gmail.com'
         send_resolved: true
         headers:
           subject: >-
@@ -41,13 +41,13 @@ receivers:
           No human action needed.
 
     webhook_configs:
-      - url: 'http://JENKINS_IP:8080/generic-webhook-trigger/invoke?token=INFRAREVIVE_RECOVERY_TOKEN'
+      - url: 'http://3.215.117.114:8080/generic-webhook-trigger/invoke?token=INFRAREVIVE_RECOVERY_TOKEN'
         send_resolved: false
 
   - name: 'email-only'
     email_configs:
-      - to: 'atinku14@yahoo.com'
-        from: 'shuhari.noti@gmail.com'
+      - to: 'tanmay.icasd@gmail.com'
+        from: 'tanmay.icasd@gmail.com'
         send_resolved: true
         headers:
           subject: '⚠️ WARNING: {{ range .Alerts }}{{ .Annotations.summary }}{{ end }} - InfraRevive'

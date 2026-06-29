@@ -19,12 +19,12 @@ scrape_configs:
   - job_name: 'node-exporter'
     static_configs:
       - targets:
-          - 'MASTER_IP:9100'
-          - 'WORKER0_IP:9100'
-          - 'WORKER1_IP:9100'
-          - 'WORKER2_IP:9100'
+          - '3.231.163.219:9100'
+          - ':9100'
+          - ':9100'
+          - ':9100'
 
   - job_name: 'flask-api'
     metrics_path: '/health'
     static_configs:
-      - targets: ['WORKER0_IP:30500']
+      - targets: [':30500']

@@ -58,11 +58,44 @@ resource "aws_security_group" "jenkins_sg" {
   description = "Jenkins security group"
   vpc_id      = aws_vpc.main.id
 
-  ingress { from_port = 22;   to_port = 22;   protocol = "tcp"; cidr_blocks = ["0.0.0.0/0"]; description = "SSH" }
-  ingress { from_port = 8080; to_port = 8080; protocol = "tcp"; cidr_blocks = ["0.0.0.0/0"]; description = "Jenkins UI" }
-  ingress { from_port = 9090; to_port = 9090; protocol = "tcp"; cidr_blocks = ["0.0.0.0/0"]; description = "Prometheus" }
-  ingress { from_port = 9093; to_port = 9093; protocol = "tcp"; cidr_blocks = ["0.0.0.0/0"]; description = "Alertmanager" }
-  egress  { from_port = 0;    to_port = 0;    protocol = "-1";  cidr_blocks = ["0.0.0.0/0"] }
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "SSH"
+  }
+
+  ingress {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Jenkins UI"
+  }
+
+  ingress {
+    from_port   = 9090
+    to_port     = 9090
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Prometheus"
+  }
+
+  ingress {
+    from_port   = 9093
+    to_port     = 9093
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Alertmanager"
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
   tags = { Name = "infrarevive-jenkins-sg" }
 }
@@ -72,11 +105,52 @@ resource "aws_security_group" "k8s_sg" {
   description = "Kubernetes cluster security group"
   vpc_id      = aws_vpc.main.id
 
-  ingress { from_port = 0;     to_port = 0;     protocol = "-1";  cidr_blocks = ["172.20.0.0/16"]; description = "All internal" }
-  ingress { from_port = 22;    to_port = 22;    protocol = "tcp"; cidr_blocks = ["0.0.0.0/0"];    description = "SSH for Ansible" }
-  ingress { from_port = 30000; to_port = 32767; protocol = "tcp"; cidr_blocks = ["0.0.0.0/0"];    description = "NodePort apps" }
-  ingress { from_port = 9100;  to_port = 9100;  protocol = "tcp"; cidr_blocks = ["172.20.0.0/16"]; description = "Node Exporter" }
-  egress  { from_port = 0;     to_port = 0;     protocol = "-1";  cidr_blocks = ["0.0.0.0/0"] }
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["172.20.0.0/16"]
+    description = "All internal"
+  }
+
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "SSH for Ansible"
+  }
+
+  ingress {
+    from_port   = 6443
+    to_port     = 6443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Kubernetes API server"
+  }
+
+  ingress {
+    from_port   = 30000
+    to_port     = 32767
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "NodePort apps"
+  }
+
+  ingress {
+    from_port   = 9100
+    to_port     = 9100
+    protocol    = "tcp"
+    cidr_blocks = ["172.20.0.0/16"]
+    description = "Node Exporter"
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
   tags = { Name = "infrarevive-k8s-sg" }
 }
@@ -147,3 +221,4 @@ resource "aws_s3_bucket" "tfstate" {
   bucket = "infrarevive-tfstate"
   lifecycle { prevent_destroy = true }
 }
+
