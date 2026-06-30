@@ -48,7 +48,7 @@
   </div>
   <div id="result"></div>
   <script>
-    const API_URL = window.FLASK_API_URL || 'http://localhost:5000';
+    const API_URL = `http://${window.location.hostname}:30500`;
     function getResult() {
       const name = document.getElementById('name').value.trim();
       if (!name) {

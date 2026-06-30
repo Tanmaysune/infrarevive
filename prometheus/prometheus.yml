@@ -19,12 +19,12 @@ scrape_configs:
   - job_name: 'node-exporter'
     static_configs:
       - targets:
-          - '3.231.163.219:9100'
-          - ':9100'
-          - ':9100'
-          - ':9100'
+          - '3.215.73.67:9100'
+          - '3.234.220.97:9100'
+          - '44.193.195.28:9100'
+          - '100.25.246.199:9100'
 
   - job_name: 'flask-api'
     metrics_path: '/health'
     static_configs:
-      - targets: [':30500']
+      - targets: ['3.234.220.97:30500']
