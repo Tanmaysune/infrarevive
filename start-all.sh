@@ -134,6 +134,16 @@ scp -i ~/.ssh/infrarevive-key.pem \
 sed -i "s|server: https://.*:6443|server: https://$MASTER_IP:6443|" ~/.kube/config
 echo "kubeconfig updated."
 
+echo ""
+echo "--- Syncing kubeconfig to Jenkins EC2 ---"
+scp -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no ~/.kube/config \
+  ec2-user@$JENKINS_IP:/tmp/config
+ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no ec2-user@$JENKINS_IP \
+  "sudo mkdir -p /var/lib/jenkins/.kube && \
+   sudo cp /tmp/config /var/lib/jenkins/.kube/config && \
+   sudo chown jenkins:jenkins /var/lib/jenkins/.kube/config"
+echo "Jenkins kubeconfig synced."
+
 # -------------------------------------------------------
 # ENSURE FLANNEL CNI IS HEALTHY (root cause of stuck
 # ContainerCreating / Init:CrashLoopBackOff after stop/start)

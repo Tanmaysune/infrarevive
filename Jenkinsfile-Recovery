@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    options {
+        disableConcurrentBuilds()
+    }
+
     environment {
         KUBECONFIG_PATH   = "/var/lib/jenkins/.kube/config"
         NAMESPACE         = "infrarevive"

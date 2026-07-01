@@ -7,7 +7,7 @@ global:
   resolve_timeout: 5m
 
 route:
-  group_by: ['alertname', 'instance']
+  group_by: ['alertname']
   group_wait: 10s
   group_interval: 1m
   repeat_interval: 2h
