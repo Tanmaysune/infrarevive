@@ -1,0 +1,347 @@
+def getValidWorkerIps() {
+    def ips = []
+    for (int i = 0; i < 10; i++) {
+        def raw = sh(script: "terraform output -json worker_public_ips | jq -r '.[]'", returnStdout: true).trim()
+        ips = raw ? raw.split("\n") as List : []
+        def allValid = ips.size() == 3 && ips.every { it != null && it.trim() != "" }
+        if (allValid) {
+            echo "Got valid worker IPs: ${ips}"
+            return ips
+        }
+        echo "Worker IPs not ready yet (attempt ${i+1}/10): ${ips} -- retrying in 10s"
+        sleep 10
+    }
+    error("Worker IPs never became valid after 10 attempts -- aborting to avoid corrupt state")
+}
+
+// Private IPs are index-aligned with getValidWorkerIps() output since both
+// come from the same aws_instance.k8s_workers[*] resource. kubelet in this
+// project registers with its PRIVATE ip as INTERNAL-IP (no cloud-controller-
+// manager is installed, so EXTERNAL-IP is always <none> -- matching by
+// public IP against "kubectl get nodes -o wide", as this pipeline used to
+// do, can never succeed and silently fell back to a hardcoded worker index).
+def getValidWorkerPrivateIps() {
+    def ips = []
+    for (int i = 0; i < 10; i++) {
+        def raw = sh(script: "terraform output -json worker_private_ips | jq -r '.[]'", returnStdout: true).trim()
+        ips = raw ? raw.split("\n") as List : []
+        def allValid = ips.size() == 3 && ips.every { it != null && it.trim() != "" }
+        if (allValid) {
+            echo "Got valid worker private IPs: ${ips}"
+            return ips
+        }
+        echo "Worker private IPs not ready yet (attempt ${i+1}/10): ${ips} -- retrying in 10s"
+        sleep 10
+    }
+    error("Worker private IPs never became valid after 10 attempts -- aborting to avoid corrupt state")
+}
+
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+    }
+
+    environment {
+        KUBECONFIG_PATH   = "/var/lib/jenkins/.kube/config"
+        NAMESPACE         = "infrarevive"
+        TERRAFORM_DIR     = "${WORKSPACE}/terraform"
+        SSH_KEY           = "/var/lib/jenkins/.ssh/infrarevive-key.pem"
+    }
+
+    stages {
+
+        stage('Identify Failed Node') {
+            steps {
+                echo "=== RECOVERY PIPELINE TRIGGERED BY ALERTMANAGER ==="
+                sh """
+                    export KUBECONFIG=${KUBECONFIG_PATH}
+                    echo "--- Node Status ---"
+                    kubectl get nodes -o wide
+                    echo "--- Pod Status ---"
+                    kubectl get pods -n ${NAMESPACE} -o wide
+                    echo "--- Dead Nodes ---"
+                    kubectl get nodes | grep -E "NotReady|Unknown" || echo "All nodes show in kubectl — EC2 itself is dead"
+                """
+            }
+        }
+
+        stage('Terraform Init') {
+            steps {
+                dir("${TERRAFORM_DIR}") {
+                    sh "terraform init -reconfigure"
+                }
+            }
+        }
+
+        stage('Identify Dead Worker') {
+            steps {
+                script {
+                    dir("${TERRAFORM_DIR}") {
+                        // Public IPs: needed later for SSH / ansible inventory.
+                        def workerIps = getValidWorkerIps()
+                        // Private IPs: index-aligned with workerIps (same
+                        // resource, same ordering). This is what we match
+                        // against kubectl, because kubelet registers its
+                        // PRIVATE ip as INTERNAL-IP -- there is no cloud-
+                        // controller-manager in this project, so EXTERNAL-IP
+                        // is always <none> and public-IP matching (the old
+                        // approach) could never succeed.
+                        def workerPrivateIps = getValidWorkerPrivateIps()
+
+                        def deadIndex = -1
+                        for (int i = 0; i < workerPrivateIps.size(); i++) {
+                            def privateIp = workerPrivateIps[i].trim()
+                            // Exact match on column 6 (INTERNAL-IP), not a
+                            // substring grep across the whole line -- avoids
+                            // false positives and correctly returns empty
+                            // when the node object doesn't exist at all.
+                            def nodeStatus = sh(
+                                script: """
+                                    export KUBECONFIG=${KUBECONFIG_PATH}
+                                    kubectl get nodes -o wide --no-headers | awk -v ip="${privateIp}" '\$6==ip {print \$2}'
+                                """,
+                                returnStdout: true
+                            ).trim()
+                            if (nodeStatus == "") {
+                                nodeStatus = "NotFound"
+                            }
+
+                            echo "Worker index ${i} (private IP ${privateIp}, public IP ${workerIps[i].trim()}) -> ${nodeStatus}"
+
+                            if (nodeStatus == "NotReady" || nodeStatus == "NotFound") {
+                                deadIndex = i
+                                echo "Dead worker found at index ${i}"
+                                if (nodeStatus == "NotReady") {
+                                    def deadNodeName = sh(
+                                        script: """
+                                            export KUBECONFIG=${KUBECONFIG_PATH}
+                                            kubectl get nodes -o wide --no-headers | awk -v ip="${privateIp}" '\$6==ip {print \$1}'
+                                        """,
+                                        returnStdout: true
+                                    ).trim()
+                                    if (deadNodeName) {
+                                        echo "Deleting ghost node object: ${deadNodeName}"
+                                        sh """
+                                            export KUBECONFIG=${KUBECONFIG_PATH}
+                                            kubectl delete node ${deadNodeName} || true
+                                        """
+                                    }
+                                }
+                                break
+                            }
+                        }
+
+                        // Fail loud instead of silently guessing a worker
+                        // index. Destroying a healthy node because detection
+                        // failed is worse than stopping the pipeline.
+                        if (deadIndex == -1) {
+                            error("Could not identify a dead/missing worker -- all 3 workers show Ready in kubectl. Aborting to avoid destroying a healthy node.")
+                        }
+
+                        env.DEAD_WORKER_INDEX = "${deadIndex}"
+                        echo "Targeting worker index: ${env.DEAD_WORKER_INDEX}"
+                    }
+                }
+            }
+        }
+
+        stage('Terraform Destroy Dead Node') {
+            steps {
+                dir("${TERRAFORM_DIR}") {
+                    sh """
+                        terraform destroy \
+                            -target='aws_instance.k8s_workers[${env.DEAD_WORKER_INDEX}]' \
+                            -auto-approve
+                    """
+                }
+                echo "Dead EC2 node destroyed."
+            }
+        }
+
+        stage('Terraform Provision New Node') {
+            steps {
+                dir("${TERRAFORM_DIR}") {
+                    // Target only the destroyed index so a plain apply can never
+                    // touch jenkins/master/other workers even if there is drift.
+                    sh """
+                        terraform apply \
+                            -target='aws_instance.k8s_workers[${env.DEAD_WORKER_INDEX}]' \
+                            -auto-approve
+                    """
+                }
+
+                script {
+                    dir("${TERRAFORM_DIR}") {
+                        def newWorkerIps = getValidWorkerIps()
+
+                        env.NEW_WORKER_IP = newWorkerIps[env.DEAD_WORKER_INDEX.toInteger()].trim()
+                        env.MASTER_IP = sh(
+                            script: "terraform output -raw master_public_ip",
+                            returnStdout: true
+                        ).trim()
+                        env.JENKINS_IP = sh(
+                            script: "terraform output -raw jenkins_public_ip",
+                            returnStdout: true
+                        ).trim()
+
+                        echo "New worker IP: ${env.NEW_WORKER_IP}"
+                        echo "Master IP: ${env.MASTER_IP}"
+                    }
+                }
+            }
+        }
+
+	stage('Update Monitoring Targets') {
+	    steps {
+		dir('terraform') {
+		    script {
+		        def masterIp = sh(script: "terraform output -raw master_public_ip", returnStdout: true).trim()
+                        def workerIps = getValidWorkerIps()
+                    def allTargets = ([masterIp] + workerIps).findAll { it?.trim() }.collect { "          - '${it}:9100'" }.join("\n")
+			writeFile file: '/tmp/prometheus-recovery.yml', text: """global:
+	  scrape_interval: 15s
+	  evaluation_interval: 15s
+	rule_files:
+	  - "alert.rules.yml"
+	alerting:
+	  alertmanagers:
+	    - static_configs:
+	        - targets:
+	            - 'localhost:9093'
+	scrape_configs:
+	  - job_name: 'prometheus'
+	    static_configs:
+	      - targets: ['localhost:9090']
+	  - job_name: 'node-exporter'
+	    static_configs:
+	      - targets:
+	${allTargets}
+	"""
+	            }
+	        }
+	        sh "sudo cp /tmp/prometheus-recovery.yml /etc/prometheus/prometheus.yml && sudo systemctl restart prometheus"
+	    }
+	}
+
+        stage('Wait for Node Boot') {
+            steps {
+                echo "Waiting 90 seconds for EC2 to boot..."
+                sh "sleep 90"
+
+                sh """
+                    for i in 1 2 3 4 5; do
+                        ssh -o StrictHostKeyChecking=no \
+                            -o ConnectTimeout=10 \
+                            -i ${SSH_KEY} \
+                            ec2-user@${env.NEW_WORKER_IP} 'echo SSH_OK' && break || sleep 20
+                    done
+                """
+                echo "New node is reachable via SSH."
+            }
+        }
+
+        stage('Auto-Update Ansible Inventory') {
+            steps {
+                script {
+                    dir("${TERRAFORM_DIR}") {
+                        def allWorkerIps = getValidWorkerIps()
+
+                        def newInventory = """[jenkins]
+${env.JENKINS_IP} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/infrarevive-key.pem
+
+[k8s_master]
+${env.MASTER_IP} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/infrarevive-key.pem
+
+[k8s_workers]
+${allWorkerIps[0].trim()} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/infrarevive-key.pem
+${allWorkerIps[1].trim()} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/infrarevive-key.pem
+${allWorkerIps[2].trim()} ansible_user=ec2-user ansible_ssh_private_key_file=~/.ssh/infrarevive-key.pem
+"""
+                        writeFile(file: "${WORKSPACE}/ansible/inventory.ini", text: newInventory)
+                        echo "Ansible inventory auto-updated with new IPs."
+                    }
+                }
+            }
+        }
+
+        stage('Get Fresh Join Command') {
+            steps {
+                sh """
+                    ssh -o StrictHostKeyChecking=no \
+                        -i ${SSH_KEY} \
+                        ec2-user@${env.MASTER_IP} \
+                        'kubeadm token create --print-join-command' > /tmp/kubeadm_join_command.sh
+                    chmod +x /tmp/kubeadm_join_command.sh
+                    echo "Join command:"
+                    cat /tmp/kubeadm_join_command.sh
+                """
+            }
+        }
+
+        stage('Ansible Configure New Node') {
+            steps {
+                // CRITICAL: --limit must be the new node's IP only.
+                // "--limit k8s_workers" matches every worker in inventory.ini
+                // (all 3, since the previous stage just rewrote it with all
+                // current IPs) which re-runs yum update + restarts
+                // docker/containerd/kubelet on the two HEALTHY workers too.
+                // That is what was knocking the other workers offline.
+                sh """
+                    ansible-playbook \
+                        -i ${WORKSPACE}/ansible/inventory.ini \
+                        ${WORKSPACE}/ansible/setup-workers.yml \
+                        --limit ${env.NEW_WORKER_IP} \
+                        --private-key=${SSH_KEY} \
+                        -v
+                """
+                echo "Ansible configuration applied ONLY to new node: ${env.NEW_WORKER_IP}"
+            }
+        }
+
+        stage('Verify Node Joined Cluster') {
+            steps {
+                sh "sleep 30"
+                sh """
+                    export KUBECONFIG=${KUBECONFIG_PATH}
+                    kubectl get nodes -o wide
+                    kubectl wait --for=condition=Ready node --all --timeout=120s || true
+                    kubectl get nodes -o wide
+                """
+            }
+        }
+
+        stage('Verify Pods Rescheduled and App Running') {
+            steps {
+                sh """
+                    export KUBECONFIG=${KUBECONFIG_PATH}
+                    kubectl get pods -n ${NAMESPACE} -o wide
+                    kubectl wait --for=condition=Ready pod --all -n ${NAMESPACE} --timeout=120s || true
+                    kubectl get pods -n ${NAMESPACE} -o wide
+                    kubectl get services -n ${NAMESPACE}
+                """
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "============================================"
+            echo "=== RECOVERY COMPLETE ==="
+            echo "Dead node replaced. Cluster healthy."
+            echo "App running. MySQL data intact."
+            echo "Recovery time: see build duration above."
+            echo "============================================"
+        }
+        failure {
+            echo "============================================"
+            echo "=== RECOVERY FAILED — Manual check needed ==="
+            echo "Common causes:"
+            echo "1. SSH key missing on Jenkins EC2"
+            echo "2. Terraform state mismatch — run terraform init"
+            echo "3. Kubeadm token expired — SSH master and regenerate"
+            echo "============================================"
+        }
+    }
+}

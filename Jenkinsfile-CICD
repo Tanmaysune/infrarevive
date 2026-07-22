@@ -1,0 +1,75 @@
+pipeline {
+    agent any
+    environment {
+        DOCKERHUB_USERNAME = 'sune21tanmay'
+        IMAGE_API          = "${DOCKERHUB_USERNAME}/infrarevive-api"
+        IMAGE_FRONT        = "${DOCKERHUB_USERNAME}/infrarevive-frontend"
+        TAG                = "${env.BUILD_NUMBER}"
+        NAMESPACE          = "infrarevive"
+        KUBECONFIG_PATH    = "/var/lib/jenkins/.kube/config"
+    }
+    stages {
+        stage('Checkout Code') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/Tanmaysune/infrarevive.git'
+                echo "Code checked out at build ${TAG}"
+            }
+        }
+        stage('Build Docker Images') {
+            steps {
+                sh "docker build -t ${IMAGE_API}:${TAG} -t ${IMAGE_API}:latest ./app"
+                sh "docker build -t ${IMAGE_FRONT}:${TAG} -t ${IMAGE_FRONT}:latest ./frontend"
+            }
+        }
+        stage('Push Images to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-credentials',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    sh "echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin"
+                    sh "docker push ${IMAGE_API}:${TAG}"
+                    sh "docker push ${IMAGE_API}:latest"
+                    sh "docker push ${IMAGE_FRONT}:${TAG}"
+                    sh "docker push ${IMAGE_FRONT}:latest"
+                }
+            }
+        }
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh """
+                    export KUBECONFIG=${KUBECONFIG_PATH}
+                    kubectl set image deployment/flask-api \
+                        flask-api=${IMAGE_API}:${TAG} \
+                        -n ${NAMESPACE}
+                    kubectl set image deployment/frontend \
+                        frontend=${IMAGE_FRONT}:${TAG} \
+                        -n ${NAMESPACE}
+                    kubectl rollout status deployment/flask-api -n ${NAMESPACE} --timeout=120s
+                    kubectl rollout status deployment/frontend -n ${NAMESPACE} --timeout=120s
+                    kubectl get pods -n ${NAMESPACE} -o wide
+                    kubectl get services -n ${NAMESPACE}
+                """
+            }
+        }
+    }
+    post {
+        success {
+            echo "=== DEPLOYMENT SUCCESSFUL === Version ${TAG} is live."
+        }
+        failure {
+            sh """
+                export KUBECONFIG=${KUBECONFIG_PATH}
+                kubectl rollout undo deployment/flask-api -n ${NAMESPACE} || true
+                kubectl rollout undo deployment/frontend -n ${NAMESPACE} || true
+            """
+            echo "=== DEPLOY FAILED — Rolled back to previous version ==="
+        }
+        always {
+            sh "docker rmi ${IMAGE_API}:${TAG} || true"
+            sh "docker rmi ${IMAGE_FRONT}:${TAG} || true"
+        }
+    }
+}

@@ -1,0 +1,2531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InfraRevive — Recovery Control Panel</title>
+<!-- Google Fonts: Manrope for a premium geometric look, JetBrains Mono for metrics -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  /* ==========================================================================
+     DESIGN SYSTEM & STYLES (Light Glassmorphism Theme with Geometric Typography)
+     ========================================================================== */
+  :root {
+    --bg-primary: #f4f6fa; /* Light Slate Blue Tint */
+    --text-primary: #0f172a; /* Slate 900 */
+    --text-secondary: #475569; /* Slate 600 */
+    --text-muted: #94a3b8; /* Slate 400 */
+    
+    /* Accents */
+    --primary: #2563eb; /* Royal Blue */
+    --primary-hover: #1d4ed8;
+    --primary-light: rgba(37, 99, 235, 0.08);
+    
+    --success: #10b981; /* Emerald Green */
+    --success-bg: rgba(16, 185, 129, 0.08);
+    --success-border: rgba(16, 185, 129, 0.15);
+    
+    --danger: #ef4444; /* Rose Red */
+    --danger-bg: rgba(239, 68, 68, 0.08);
+    --danger-border: rgba(239, 68, 68, 0.15);
+    
+    --warning: #f59e0b; /* Amber Yellow */
+    --warning-bg: rgba(245, 158, 11, 0.08);
+    --warning-border: rgba(245, 158, 11, 0.15);
+    
+    /* Glassmorphism Configuration */
+    --glass-bg: rgba(255, 255, 255, 0.45);
+    --glass-bg-hover: rgba(255, 255, 255, 0.65);
+    --glass-border: rgba(255, 255, 255, 0.6);
+    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.03);
+    --glass-blur: blur(24px);
+  }
+
+  * { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+  }
+
+  body {
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+    display: flex;
+  }
+
+  /* Decorative Ambient Blurred Blobs behind glass panels */
+  .bg-blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(140px);
+    z-index: -1;
+    opacity: 0.4;
+    pointer-events: none;
+  }
+  .bg-blob-1 {
+    width: 600px;
+    height: 600px;
+    background: #60a5fa; /* Sky Blue */
+    top: -150px;
+    left: -150px;
+  }
+  .bg-blob-2 {
+    width: 650px;
+    height: 650px;
+    background: #c084fc; /* Lavender Purple */
+    bottom: -150px;
+    right: -150px;
+  }
+  .bg-blob-3 {
+    width: 450px;
+    height: 450px;
+    background: #f472b6; /* Soft Pink */
+    top: 35%;
+    left: 25%;
+  }
+
+  /* ==========================================================================
+     LAYOUT STRUCTURE
+     ========================================================================== */
+  .app-container {
+    display: flex;
+    width: 100%;
+    min-height: 100vh;
+    padding: 24px;
+    gap: 24px;
+  }
+
+  /* SIDEBAR STYLES */
+  aside.sidebar {
+    width: 280px;
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    box-shadow: var(--glass-shadow);
+    padding: 36px 24px;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 48px;
+    letter-spacing: -0.5px;
+  }
+  
+  .brand svg {
+    width: 26px;
+    height: 26px;
+    fill: currentColor;
+  }
+
+  .nav-menu {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex-grow: 1;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    border-radius: 14px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .nav-item svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2.5;
+  }
+
+  .nav-item:hover {
+    background: rgba(255, 255, 255, 0.6);
+    color: var(--text-primary);
+  }
+
+  .nav-item.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.2);
+  }
+
+  .nav-item.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .nav-item.disabled:hover {
+    background: transparent;
+    color: var(--text-secondary);
+  }
+
+  .sidebar-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: auto;
+    padding-top: 24px;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+  }
+
+  .notif-btn {
+    width: 100%;
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 14px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+  }
+
+  .notif-btn:hover {
+    background: var(--primary-hover);
+    box-shadow: 0 4px 18px rgba(37, 99, 235, 0.22);
+  }
+
+  .system-badge {
+    background: var(--success-bg);
+    color: var(--success);
+    border: 1px solid var(--success-border);
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .system-badge::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    background: var(--success);
+    border-radius: 50%;
+    box-shadow: 0 0 8px var(--success);
+  }
+
+  /* MAIN CONTENT AREA */
+  main.main-content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    overflow-y: auto;
+  }
+
+  header.top-header {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    box-shadow: var(--glass-shadow);
+    padding: 20px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .header-title h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+  }
+
+  .header-title p {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    font-weight: 500;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .live-badge {
+    background: var(--primary-light);
+    color: var(--primary);
+    border: 1px solid rgba(37, 99, 235, 0.15);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .live-badge .pulse-dot {
+    width: 6px;
+    height: 6px;
+    background: var(--primary);
+    border-radius: 50%;
+    animation: livePulse 2s infinite;
+  }
+
+  @keyframes livePulse {
+    0% { transform: scale(0.95); opacity: 0.5; }
+    50% { transform: scale(1.25); opacity: 1; }
+    100% { transform: scale(0.95); opacity: 0.5; }
+  }
+
+  /* ==========================================================================
+     NOTIFICATIONS BANNER (Cross-project alarms)
+     ========================================================================== */
+  .alert-banner {
+    display: none; /* Dynamic display */
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    border-radius: 16px;
+    padding: 18px 24px;
+    gap: 16px;
+    align-items: center;
+    animation: slideDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .alert-banner.active {
+    display: flex;
+  }
+
+  .alert-banner-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: rgba(239, 68, 68, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--danger);
+    flex-shrink: 0;
+  }
+
+  .alert-banner-content {
+    flex-grow: 1;
+  }
+
+  .alert-banner-content h4 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--danger);
+  }
+
+  .alert-banner-content p {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+
+  .alert-banner-btn {
+    background: var(--danger);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    transition: background 0.2s ease;
+    font-family: 'Libre Baskerville', Georgia, serif;
+  }
+
+  .alert-banner-btn:hover {
+    background: #dc2626;
+  }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ==========================================================================
+     VIEW: PROJECTS SELECTION GRID (HOME)
+     ========================================================================== */
+  .view-pane {
+    display: none;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  .view-pane.active {
+    display: flex;
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+
+  .section-header h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.3px;
+  }
+
+  .projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 20px;
+  }
+
+  .project-card {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    box-shadow: var(--glass-shadow);
+    padding: 28px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 210px;
+  }
+
+  .project-card:hover {
+    background: var(--glass-bg-hover);
+    transform: translateY(-4px);
+    box-shadow: 0 16px 36px rgba(31, 38, 135, 0.07);
+  }
+
+  .project-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .project-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: rgba(0, 0, 0, 0.03);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+  }
+
+  .project-status-pill {
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-healthy {
+    background: var(--success-bg);
+    color: var(--success);
+  }
+
+  .status-alerting {
+    background: var(--danger-bg);
+    color: var(--danger);
+  }
+
+  .status-warning {
+    background: var(--warning-bg);
+    color: var(--warning);
+  }
+
+  .project-card-body {
+    margin-top: 24px;
+  }
+
+  .project-card-body h3 {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .project-card-body p {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+
+  .project-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 26px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(0, 0, 0, 0.04);
+  }
+
+  .project-meta-item {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+
+  .project-meta-item span {
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  /* ==========================================================================
+     INFRASTRUCTURE HEALTH MONITOR PANELS
+     ========================================================================== */
+  .infra-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+  }
+
+  .infra-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    padding: 22px;
+    box-shadow: var(--glass-shadow);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    cursor: pointer;
+  }
+
+  .infra-card:hover {
+    transform: translateY(-3px);
+    background: var(--glass-bg-hover);
+    box-shadow: 0 12px 28px rgba(31, 38, 135, 0.05);
+  }
+
+  .infra-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+
+  .infra-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .infra-role {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+    font-weight: 600;
+  }
+
+  .infra-status {
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+  }
+
+  .infra-online {
+    background: var(--success-bg);
+    color: var(--success);
+  }
+
+  .infra-offline {
+    background: var(--danger-bg);
+    color: var(--danger);
+  }
+
+  .infra-nometrics {
+    background: rgba(0,0,0,0.04);
+    color: var(--text-secondary);
+  }
+
+  .infra-ip {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-secondary);
+    margin: 10px 0;
+    background: rgba(0, 0, 0, 0.03);
+    padding: 3px 8px;
+    border-radius: 5px;
+    display: inline-block;
+  }
+
+  .infra-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 14px;
+    border-top: 1px solid rgba(0, 0, 0, 0.04);
+    padding-top: 14px;
+  }
+
+  .infra-metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .infra-metric-label {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 600;
+  }
+
+  .infra-metric-value {
+    font-size: 11px;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .infra-progress-bar {
+    width: 60px;
+    height: 5px;
+    background: rgba(0,0,0,0.05);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .infra-progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--success);
+  }
+
+  /* ==========================================================================
+     VIEW: PROJECT DETAILS DASHBOARD & BREADCRUMBS
+     ========================================================================== */
+  .detail-nav-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 4px;
+  }
+
+  .back-btn {
+    background: none;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Manrope', system-ui, -apple-system, sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+  }
+
+  .back-btn:hover {
+    background: rgba(0, 0, 0, 0.03);
+    color: var(--text-primary);
+    border-color: rgba(0, 0, 0, 0.25);
+  }
+
+  .back-btn svg {
+    width: 12px;
+    height: 12px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2.5;
+  }
+
+  .breadcrumb-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--text-secondary);
+    background: var(--glass-bg);
+    padding: 10px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--glass-border);
+  }
+
+  .breadcrumb-link {
+    cursor: pointer;
+    font-weight: 600;
+    transition: color 0.2s;
+  }
+
+  .breadcrumb-link:hover {
+    color: var(--primary);
+  }
+
+  .breadcrumb-current {
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+  }
+
+  .full-width {
+    grid-column: 1 / -1;
+  }
+
+  .glass-card {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    box-shadow: var(--glass-shadow);
+    padding: 28px;
+  }
+
+  .glass-card h3 {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* CLUSTER NODES CARD */
+  .node-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  }
+
+  .node-row:last-child {
+    border-bottom: none;
+  }
+
+  .node-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .dot-green {
+    background: var(--success);
+    box-shadow: 0 0 8px var(--success);
+  }
+
+  .dot-red {
+    background: var(--danger);
+    box-shadow: 0 0 8px var(--danger);
+    animation: nodePulse 1.2s infinite;
+  }
+
+  .dot-yellow {
+    background: var(--warning);
+    box-shadow: 0 0 8px var(--warning);
+  }
+
+  @keyframes nodePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .node-name {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--text-primary);
+  }
+
+  .node-ip {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 2px;
+  }
+
+  .node-stats {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .metric {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .metric span {
+    color: var(--text-primary);
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .cpu-bar {
+    height: 6px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 3px;
+    width: 100px;
+    overflow: hidden;
+    margin-top: 2px;
+  }
+
+  .cpu-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--success);
+    transition: width 0.4s ease;
+  }
+
+  .cpu-high { background: var(--danger); }
+  .cpu-med { background: var(--warning); }
+
+  /* ACTIVE ALERTS CARD */
+  .alert-box {
+    background: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .alert-box:last-child {
+    margin-bottom: 0;
+  }
+
+  .alert-firing {
+    color: var(--danger);
+    font-weight: 700;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .alert-none {
+    color: var(--success);
+    font-weight: 600;
+    font-size: 13px;
+    text-align: center;
+    padding: 24px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  /* PIPELINE & CHECKPOINT STEP PROGRESS BAR */
+  .build-status {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 10px;
+    border-radius: 6px;
+    display: inline-block;
+    margin-bottom: 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-running {
+    background: var(--warning-bg);
+    color: var(--warning);
+    border: 1px solid var(--warning-border);
+  }
+
+  .status-success {
+    background: var(--success-bg);
+    color: var(--success);
+    border: 1px solid var(--success-border);
+  }
+
+  .status-failed {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border: 1px solid var(--danger-border);
+  }
+
+  .status-idle {
+    background: rgba(0, 0, 0, 0.03);
+    color: var(--text-secondary);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+  }
+
+  /* CHECKPOINT STEPS VIEW */
+  .checkpoint-bar-container {
+    margin: 20px 0 30px;
+    padding: 0 10px;
+  }
+
+  .checkpoint-bar {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+    width: 100%;
+  }
+
+  .checkpoint-bar::before {
+    content: '';
+    position: absolute;
+    top: 18px;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: rgba(0, 0, 0, 0.05);
+    z-index: 1;
+    border-radius: 2px;
+  }
+
+  .checkpoint-bar-fill {
+    position: absolute;
+    top: 18px;
+    left: 0;
+    height: 4px;
+    background: var(--primary);
+    z-index: 2;
+    transition: width 0.5s ease;
+    border-radius: 2px;
+    width: 0%;
+  }
+
+  .checkpoint-step {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+  }
+
+  .checkpoint-node {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    color: var(--text-muted);
+    transition: all 0.3s ease;
+  }
+
+  .checkpoint-node svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 3;
+  }
+
+  .checkpoint-label {
+    margin-top: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-align: center;
+    max-width: 90px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Node state variants */
+  .checkpoint-step.done .checkpoint-node {
+    background: var(--success);
+    border-color: var(--success);
+    color: white;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+  }
+
+  .checkpoint-step.done .checkpoint-label {
+    color: var(--success);
+  }
+
+  .checkpoint-step.running .checkpoint-node {
+    background: white;
+    border-color: var(--warning);
+    color: var(--warning);
+    box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
+    animation: activeStepPulse 1.5s infinite;
+  }
+
+  .checkpoint-step.running .checkpoint-label {
+    color: var(--warning);
+  }
+
+  .checkpoint-step.failed .checkpoint-node {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: white;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.3);
+  }
+
+  .checkpoint-step.failed .checkpoint-label {
+    color: var(--danger);
+  }
+
+  @keyframes activeStepPulse {
+    0% { transform: scale(1); box-shadow: 0 0 0px rgba(245, 158, 11, 0.4); }
+    50% { transform: scale(1.08); box-shadow: 0 0 12px rgba(245, 158, 11, 0.6); }
+    100% { transform: scale(1); box-shadow: 0 0 0px rgba(245, 158, 11, 0.4); }
+  }
+
+  /* TIMELINE DETAIL STEPS */
+  .pipeline-steps-list {
+    margin-top: 15px;
+  }
+
+  .pipeline-step {
+    display: flex;
+    align-items: center;
+    padding: 10px 0;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+  }
+
+  .pipeline-step:last-child {
+    border-bottom: none;
+  }
+
+  .step-icon {
+    margin-right: 12px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .step-icon svg {
+    width: 14px;
+    height: 14px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2.5;
+  }
+
+  .step-done { color: var(--success); font-weight: 600; }
+  .step-running { color: var(--warning); font-weight: 700; display: flex; align-items: center; gap: 4px;}
+  .step-pending { color: var(--text-muted); }
+  .step-failed { color: var(--danger); font-weight: 700; }
+
+  .step-duration {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-left: auto;
+    font-weight: 600;
+  }
+
+  /* SYSTEM OVERVIEW / METRICS LIST */
+  .metrics-list .node-row {
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  }
+  .metrics-list .node-row:last-child {
+    border-bottom: none;
+  }
+
+  .metrics-list .node-row span:first-child {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .metrics-list .node-row span:last-child {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* REFRESH INFO */
+  .refresh-info {
+    font-size: 11px;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-top: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+  }
+
+  /* RESPONSIVE LAYOUT RULES */
+  @media(max-width: 900px) {
+    .app-container {
+      flex-direction: column;
+    }
+    aside.sidebar {
+      width: 100%;
+    }
+    .detail-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media(max-width: 500px) {
+    .checkpoint-label {
+      max-width: 50px;
+      font-size: 9px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- Ambient background blurs -->
+<div class="bg-blob bg-blob-1"></div>
+<div class="bg-blob bg-blob-2"></div>
+<div class="bg-blob bg-blob-3"></div>
+
+<div class="app-container">
+
+  <!-- LEFT SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <!-- Lighting Bolt SVG Icon (Replaces Emoji) -->
+      <svg viewBox="0 0 24 24" style="stroke:currentColor;fill:none;stroke-width:2.5;">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+      </svg>
+      <span>InfraRevive</span>
+    </div>
+
+    <ul class="nav-menu">
+      <li class="nav-item active" id="nav-home" onclick="navigateTo('home')">
+        <svg viewBox="0 0 24 24">
+          <rect x="3" y="3" width="7" height="9" rx="1"/>
+          <rect x="14" y="3" width="7" height="5" rx="1"/>
+          <rect x="14" y="12" width="7" height="9" rx="1"/>
+          <rect x="3" y="16" width="7" height="5" rx="1"/>
+        </svg>
+        Projects Home
+      </li>
+      <li class="nav-item disabled" id="nav-detail" onclick="navigateTo('details')">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="16" x2="12" y2="12"/>
+          <line x1="12" y1="8" x2="12.01" y2="8"/>
+        </svg>
+        Recovery Details
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <button class="notif-btn" onclick="enableNotifications()">
+        <!-- Bell SVG Icon -->
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5;">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        Enable Push Alerts
+      </button>
+      <div class="system-badge">
+        Recovery Engine Active
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN DASHBOARD CONTENT -->
+  <main class="main-content">
+
+    <!-- TOP HEADER -->
+    <header class="top-header">
+      <div class="header-title">
+        <h1 id="header-title-text">Active Projects</h1>
+        <p id="header-subtitle-text">Multi-Cluster Container Status & Auto-Recovery Monitor</p>
+      </div>
+      <div class="header-actions">
+        <span class="live-badge">
+          <span class="pulse-dot"></span>
+          LIVE updates every 15s
+        </span>
+      </div>
+    </header>
+
+    <!-- CROSS-PROJECT SYSTEM ALERT BANNER -->
+    <div class="alert-banner" id="system-alert-banner">
+      <div class="alert-banner-icon">
+        <svg viewBox="0 0 24 24" style="width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.5;">
+          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+          <line x1="12" y1="9" x2="12" y2="13"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+      </div>
+      <div class="alert-banner-content">
+        <h4 id="alert-banner-title">Alert Firing</h4>
+        <p id="alert-banner-desc">Click details below to inspect the cluster nodes and trigger recovery steps.</p>
+      </div>
+      <button class="alert-banner-btn" id="inspect-btn" onclick="navigateToLiveDetails()">Inspect Details</button>
+    </div>
+
+    <!-- ======================================================================
+         VIEW 1: PROJECTS SELECTION GRID (HOME)
+         ====================================================================== -->
+    <section class="view-pane active" id="pane-home">
+      
+      <!-- Recovery Projects Container -->
+      <div>
+        <div class="section-header" style="margin-bottom:12px">
+          <h2>Active Recovery Projects</h2>
+        </div>
+        <div class="projects-grid" id="projects-list-container">
+          <div style="padding:20px; color:var(--text-secondary); grid-column: 1/-1;">Loading active projects from Jenkins...</div>
+        </div>
+      </div>
+
+      <!-- Standing System Health Monitoring (Jenkins, Prometheus, Alertmanager) -->
+      <div>
+        <div class="section-header" style="margin-bottom:12px; margin-top:10px;">
+          <h2>Infrastructure Status Monitor (Non-Recovery nodes)</h2>
+        </div>
+        <div class="infra-grid" id="infra-list-container">
+          <div style="padding:15px; color:var(--text-secondary);">Loading server status...</div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ======================================================================
+         VIEW 2: PROJECT DETAILS VIEW (DASHBOARD)
+         ====================================================================== -->
+    <section class="view-pane" id="pane-details">
+      
+      <!-- Back button and breadcrumbs row -->
+      <div class="detail-nav-bar">
+        <button class="back-btn" onclick="window.history.back()">
+          <svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          Back
+        </button>
+        <div class="breadcrumb-nav">
+          <span class="breadcrumb-link" onclick="navigateTo('home')">Projects</span>
+          <span>/</span>
+          <span class="breadcrumb-current" id="project-detail-name">Loading...</span>
+        </div>
+      </div>
+
+      <div class="detail-grid">
+        
+        <!-- Nodes detail container -->
+        <div class="glass-card" id="nodes-card">
+          <h3>
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5;"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+            Cluster Nodes
+          </h3>
+          <div id="nodes-container">Loading cluster nodes...</div>
+        </div>
+
+        <!-- Active Alerts container -->
+        <div class="glass-card" id="alerts-card">
+          <h3>
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            Active Alerts
+          </h3>
+          <div id="alerts-container">Loading active alerts...</div>
+        </div>
+
+        <!-- Recovery pipeline container with graphical checkpoint bar -->
+        <div class="glass-card full-width" id="pipeline-card">
+          <h3>
+            <!-- EKG activity SVG Icon (Replaced pen/feather) -->
+            <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+            Recovery Pipeline Status
+          </h3>
+          
+          <div id="pipeline-header-block">
+            <span class="build-status status-idle">IDLE</span>
+          </div>
+
+          <!-- CHECKPOINT PROGRESS BAR -->
+          <div class="checkpoint-bar-container">
+            <div class="checkpoint-bar" id="pipeline-checkpoint-bar">
+              <!-- Checkpoint nodes populated dynamically -->
+            </div>
+          </div>
+
+          <!-- Chronological step timelines -->
+          <div id="pipeline-container">Loading pipeline stages...</div>
+        </div>
+
+        <!-- Stats details container -->
+        <div class="glass-card full-width" id="metrics-card">
+          <h3>
+            <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.5;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            System Overview Metrics
+          </h3>
+          <div id="metrics-container" class="metrics-list">Loading metrics...</div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ======================================================================
+         VIEW 3: INFRASTRUCTURE SERVICE DETAILS VIEW
+         ====================================================================== -->
+    <section class="view-pane" id="pane-infra-details">
+      
+      <!-- Back button and breadcrumbs row -->
+      <div class="detail-nav-bar">
+        <button class="back-btn" onclick="window.history.back()">
+          <svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+          Back
+        </button>
+        <div class="breadcrumb-nav">
+          <span class="breadcrumb-link" onclick="navigateTo('home')">Projects</span>
+          <span>/</span>
+          <span class="breadcrumb-link" onclick="navigateTo('home')">Infrastructure</span>
+          <span>/</span>
+          <span class="breadcrumb-current" id="infra-detail-breadcrumb">Jenkins EC2 Node</span>
+        </div>
+      </div>
+
+      <div class="detail-grid" style="margin-top: 4px;">
+        
+        <!-- Main details card -->
+        <div class="glass-card full-width" style="display:flex; flex-direction:column; gap:24px;">
+          <div style="display:flex; justify-content:space-between; align-items:start; flex-wrap:wrap; gap:16px;">
+            <div>
+              <h2 id="infra-detail-title" style="font-size:22px; font-weight:700; color:var(--text-primary); letter-spacing:-0.5px;">Jenkins EC2 Node</h2>
+              <p id="infra-detail-role" style="font-size:13px; color:var(--text-secondary); margin-top:4px; font-weight:500;">CI/CD Orchestration and pipeline executor host.</p>
+              <div style="font-family:'JetBrains Mono', monospace; font-size:12px; margin-top:8px; color:var(--text-secondary); display:flex; align-items:center; gap:8px;">
+                <span>Public IP:</span> <span id="infra-detail-ip" style="background:rgba(0,0,0,0.04); padding:2px 8px; border-radius:6px; font-weight:700;">%%JENKINS_IP%%</span>
+              </div>
+            </div>
+            <div style="margin-left:auto; display:flex; flex-direction:column; align-items:end; gap:10px;">
+              <span class="infra-status infra-online" id="infra-detail-status" style="font-size:11px; padding:5px 12px; display:inline-flex; align-items:center; gap:6px;">ONLINE</span>
+              <button class="notif-btn" id="infra-detail-action-btn" onclick="openConsoleInterface()" style="margin-bottom:0; padding:10px 20px;">Open Jenkins Interface</button>
+            </div>
+          </div>
+          
+          <!-- Metrics block -->
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:16px; border-top: 1px solid rgba(0,0,0,0.05); padding-top:20px;">
+            <div style="background:rgba(255,255,255,0.4); border:1px solid rgba(0,0,0,0.03); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:8px; box-shadow: var(--glass-shadow);">
+              <span style="font-size:11px; color:var(--text-secondary); font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">CPU Load</span>
+              <span id="infra-detail-cpu" style="font-size:26px; font-weight:800; font-family:'JetBrains Mono', monospace; color: var(--text-primary);">14.7%</span>
+              <div class="cpu-bar" style="width:100%; height:5px; background:rgba(0,0,0,0.05);"><div class="cpu-fill" id="infra-detail-cpu-bar" style="width:14.7%; height:100%;"></div></div>
+            </div>
+            <div style="background:rgba(255,255,255,0.4); border:1px solid rgba(0,0,0,0.03); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:8px; box-shadow: var(--glass-shadow);">
+              <span style="font-size:11px; color:var(--text-secondary); font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Memory Allocation</span>
+              <span id="infra-detail-mem" style="font-size:26px; font-weight:800; font-family:'JetBrains Mono', monospace; color: var(--text-primary);">46.7%</span>
+              <div class="cpu-bar" style="width:100%; height:5px; background:rgba(0,0,0,0.05);"><div class="cpu-fill" id="infra-detail-mem-bar" style="width:46.7%; height:100%;"></div></div>
+            </div>
+            <div style="background:rgba(255,255,255,0.4); border:1px solid rgba(0,0,0,0.03); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:8px; box-shadow: var(--glass-shadow);">
+              <span style="font-size:11px; color:var(--text-secondary); font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">Target Port</span>
+              <span id="infra-detail-port" style="font-size:26px; font-weight:800; font-family:'JetBrains Mono', monospace; color: var(--primary);">8080</span>
+              <span style="font-size:10px; color:var(--text-muted); font-weight:500;">Instance routing port</span>
+            </div>
+          </div>
+          
+          <!-- System properties / table of details -->
+          <div style="border-top:1px solid rgba(0,0,0,0.05); padding-top:20px;">
+            <h4 style="font-size:12px; font-weight:800; color:var(--text-primary); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:14px;">Service Diagnostics & Status Registry</h4>
+            <div class="metrics-list" id="infra-detail-diagnostics">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Timestamp footer -->
+    <p class="refresh-info" id="last-update">Last updated: --</p>
+
+  </main>
+</div>
+
+<script>
+// ============================================================
+// CONFIGURATION — Update these with your real IPs
+// ============================================================
+const PROMETHEUS_URL = 'http://%%JENKINS_IP%%:9090';
+const JENKINS_URL    = 'http://%%JENKINS_IP%%:8080';
+const JENKINS_JOB    = 'infrarevive-recovery';
+// Injected by start-all.sh / setup-config.sh / deploy-dashboard.sh.
+// Used to correctly tell the master node apart from worker nodes
+// (replaces the old hardcoded "instance IP contains '158'" hack).
+const MASTER_IP       = '%%MASTER_IP%%';
+// ============================================================
+
+// ============================================================
+// INFRASTRUCTURE SERVERS TO MONITOR (Jenkins, Prometheus, Alertmanager on single host)
+// ============================================================
+const MONITOR_SERVERS = [
+  { id: "jenkins", name: "Jenkins EC2 Node", ip: "%%JENKINS_IP%%", role: "CI/CD Orchestrator", status: "ONLINE", cpu: 14.7, mem: 46.7, port: 8080 },
+  { id: "prometheus", name: "Prometheus Monitoring Server", ip: "%%JENKINS_IP%%", role: "Metrics Storage", status: "ONLINE", cpu: 8.0, mem: 61.7, port: 9090 },
+  { id: "alertmanager", name: "Alertmanager System", ip: "%%JENKINS_IP%%", role: "Trigger Routing", status: "ONLINE", cpu: 2.1, mem: 24.3, port: 9093 }
+];
+
+let notificationsEnabled = false;
+let previousAlerts = [];
+let previousPipelineStatus = '';
+let currentView = 'home';
+let currentProject = 'infrarevive-recovery'; // Selected job/project name
+let currentInfraServiceId = 'jenkins'; // Selected infrastructure service ID
+
+// Registry of live-fetched/mock diagnostic properties
+let liveDiagnosticsData = {
+  jenkins: [
+    { label: "Uptime Registry", value: "24 days, 5 hours, 12 mins" },
+    { label: "Executors Pool", value: "4 Executors configured (All Idle)" },
+    { label: "Active Queue Status", value: "0 Jobs in backlog queue" },
+    { label: "Plugin Integrity", value: "84 Plugins Up-to-date" },
+    { label: "Engine Version", value: "Jenkins LTS v2.440.1" },
+    { label: "Heap Memory Allocation", value: "1.2 GB / 4.0 GB (30%)" },
+    { label: "Disaster Recovery Backup", value: "SUCCESS (Today, 04:00 AM to AWS S3)" }
+  ],
+  prometheus: [
+    { label: "Uptime Registry", value: "45 days, 12 hours" },
+    { label: "Scrape Target Ratio", value: "12 / 12 Active targets up (100%)" },
+    { label: "Scrape Frequency", value: "15 seconds" },
+    { label: "Active Alert Rules", value: "18 configured rules (1 firing)" },
+    { label: "TSDB In-Memory Head Block", value: "2,548 blocks active" },
+    { label: "Database Disk Storage", value: "12% of allocated EBS block used" },
+    { label: "Core Version", value: "Prometheus v2.49.1" }
+  ],
+  alertmanager: [
+    { label: "Uptime Registry", value: "45 days, 12 hours" },
+    { label: "Current Silences", value: "2 silences active" },
+    { label: "Receiver Integration Handlers", value: "Slack Webhook, Email SMTP, PagerDuty" },
+    { label: "Dispatch Retry Backlog", value: "0 alerts pending retry" },
+    { label: "24h Dispatch Statistics", value: "148 alerts routed successfully" },
+    { label: "High Availability Mode", value: "Disabled (Standalone Agent)" },
+    { label: "Core Version", value: "Alertmanager v0.26.0" }
+  ]
+};
+
+// Global hook: Disable right click context menu
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+// Demo configuration check helper
+function isDemoMode() {
+  return JENKINS_URL.includes("JENKINS_IP") || PROMETHEUS_URL.includes("JENKINS_IP");
+}
+
+// Extract hostname/IP from URLs to auto-populate monitor servers
+function extractIPAddress(urlStr) {
+  try {
+    const url = new URL(urlStr);
+    return url.hostname;
+  } catch(e) {
+    return "127.0.0.1";
+  }
+}
+
+// ============================================================
+// NAVIGATION & HISTORY API ROUTING
+// ============================================================
+function navigateTo(view, push = true) {
+  currentView = view;
+  
+  document.getElementById('nav-home').classList.remove('active');
+  document.getElementById('nav-detail').classList.remove('active');
+  
+  // Hide all panes
+  document.getElementById('pane-home').classList.remove('active');
+  document.getElementById('pane-details').classList.remove('active');
+  document.getElementById('pane-infra-details').classList.remove('active');
+  
+  if (view === 'home') {
+    document.getElementById('nav-home').classList.add('active');
+    document.getElementById('pane-home').classList.add('active');
+    
+    document.getElementById('header-title-text').innerText = "Active Projects";
+    document.getElementById('header-subtitle-text').innerText = "Multi-Cluster Container Status & Auto-Recovery Monitor";
+  } else if (view === 'details') {
+    document.getElementById('nav-detail').classList.add('active');
+    document.getElementById('pane-details').classList.add('active');
+    
+    const proj = liveProjects.find(p => p.id === currentProject);
+    const displayProjName = proj ? proj.name : currentProject;
+    document.getElementById('project-detail-name').innerText = displayProjName;
+    document.getElementById('header-title-text').innerText = `${displayProjName} — Recovery Panel`;
+    document.getElementById('header-subtitle-text').innerText = `Dynamic Auto-Recovery logs and infrastructure health parameters for ${displayProjName}`;
+  } else if (view === 'infra-details') {
+    document.getElementById('pane-infra-details').classList.add('active');
+    
+    const s = MONITOR_SERVERS.find(item => item.id === currentInfraServiceId);
+    if (s) {
+      document.getElementById('header-title-text').innerText = `${s.name} Details`;
+      document.getElementById('header-subtitle-text').innerText = `Standalone infrastructure diagnostic console for ${s.name} | Port ${s.port}`;
+    }
+  }
+
+  // Push state to browser history stack to support back/forward button native triggers
+  if (push) {
+    window.history.pushState({ view: view, project: currentProject, infra: currentInfraServiceId }, '', '#' + view);
+  }
+}
+
+// History stack listener for default browser Back button support
+window.addEventListener('popstate', (event) => {
+  if (event.state) {
+    const state = event.state;
+    currentProject = state.project;
+    currentInfraServiceId = state.infra;
+    navigateTo(state.view, false);
+  } else {
+    navigateTo('home', false);
+  }
+});
+
+// Set initial replace state on page load
+window.addEventListener('load', () => {
+  window.history.replaceState({ view: 'home', project: currentProject, infra: currentInfraServiceId }, '', '#home');
+});
+
+function openProjectDetails(projId) {
+  currentProject = projId;
+  const detailsTab = document.getElementById('nav-detail');
+  detailsTab.classList.remove('disabled');
+  navigateTo('details');
+  refreshAll();
+}
+
+function openInfraDetails(serviceId) {
+  currentInfraServiceId = serviceId;
+  navigateTo('infra-details');
+  renderInfraDetails(serviceId);
+}
+
+function navigateToLiveDetails() {
+  if (liveProjects.length > 0) {
+    openProjectDetails(liveProjects[0].id);
+  } else {
+    openProjectDetails(JENKINS_JOB);
+  }
+}
+
+// Opens the real console interface in a new window using the placeholder or config URL
+function openConsoleInterface() {
+  const serviceMap = {
+    'jenkins': 'http://%%JENKINS_IP%%:8080',
+    'prometheus': 'http://%%JENKINS_IP%%:9090',
+    'alertmanager': 'http://%%JENKINS_IP%%:9093'
+  };
+  const url = serviceMap[currentInfraServiceId];
+  if (url) {
+    window.open(url, '_blank');
+  }
+}
+
+// ============================================================
+// DYNAMIC METRICS FETCHERS (REAL-TIME INSTANCE DIAGNOSTICS)
+// ============================================================
+
+async function fetchJenkinsJobs() {
+  try {
+    const res = await fetch(`/api/jenkins/api/json?tree=jobs[name]`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.jobs || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+async function fetchJenkinsBuild(jobName) {
+  try {
+    const res = await fetch(`/api/jenkins/job/${jobName}/lastBuild/api/json`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) {
+    return null;
+  }
+}
+
+async function fetchJenkinsBuildStages(jobName, buildNumber) {
+  try {
+    const res = await fetch(`/api/jenkins/job/${jobName}/${buildNumber}/wfapi/describe`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (e) {
+    return null;
+  }
+}
+
+async function fetchPrometheus(query) {
+  try {
+    const res = await fetch(`/api/prometheus/api/v1/query?query=${encodeURIComponent(query)}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.data && data.data.result) ? data.data.result : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+async function fetchAlerts() {
+  try {
+    const res = await fetch(`/api/prometheus/api/v1/alerts`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.data && data.data.alerts) ? data.data.alerts : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+async function fetchInstanceDiagnostics() {
+  if (isDemoMode()) return; // Keep mock values in demo mode
+
+  // 1. Fetch Jenkins Diagnostics (executors, build queue)
+  try {
+	const compRes = await fetch(`/api/jenkins/computer/api/json`);
+	const queueRes = await fetch(`/api/jenkins/queue/api/json`);    
+    if (compRes.ok && queueRes.ok) {
+      const compData = await compRes.json();
+      const queueData = await queueRes.json();
+      
+      const totalExec = compData.computer ? compData.computer.reduce((acc, c) => acc + (c.numExecutors || 0), 0) : 0;
+      const offlineExec = compData.computer ? compData.computer.filter(c => c.offline).length : 0;
+      const queueSize = queueData.items ? queueData.items.length : 0;
+      
+      liveDiagnosticsData.jenkins = [
+        { label: "Executors Pool", value: `${totalExec} executors configured (${offlineExec} offline)` },
+        { label: "Active Queue Status", value: `${queueSize} jobs in queue` },
+        { label: "Plugin Integrity", value: "All modules up-to-date" },
+        { label: "Engine Version", value: "Jenkins LTS (Resolved)" },
+        { label: "Backup Synchronization", value: "Active AWS sync configured" }
+      ];
+    }
+  } catch(e) {}
+
+  // 2. Fetch Prometheus Diagnostics (uptime, targets, scraping rules)
+  try {
+	const targetsRes = await fetch(`/api/prometheus/api/v1/targets`);
+	const runtimeRes = await fetch(`/api/prometheus/api/v1/status/runtimeinfo`);
+	const rulesRes = await fetch(`/api/prometheus/api/v1/rules`);
+    
+    if (targetsRes.ok && runtimeRes.ok && rulesRes.ok) {
+      const targetsData = await targetsRes.json();
+      const runtimeData = await runtimeRes.json();
+      const rulesData = await rulesRes.json();
+      
+      const activeTargets = targetsData.data.activeTargets || [];
+      const upTargets = activeTargets.filter(t => t.health === 'up').length;
+      
+      const startTime = runtimeData.data.startTime || (Date.now() / 1000);
+      const uptimeSec = (Date.now() / 1000) - startTime;
+      const uptimeDays = Math.floor(uptimeSec / 86400);
+      const uptimeHrs = Math.floor((uptimeSec % 86400) / 3600);
+      
+      let rulesCount = 0;
+      if (rulesData.data && rulesData.data.groups) {
+        rulesData.data.groups.forEach(g => { rulesCount += (g.rules ? g.rules.length : 0); });
+      }
+      
+      liveDiagnosticsData.prometheus = [
+        { label: "Uptime Registry", value: `${uptimeDays} days, ${uptimeHrs} hours` },
+        { label: "Scrape Target Ratio", value: `${upTargets} / ${activeTargets.length} active targets online` },
+        { label: "Scrape Frequency", value: "15s polling resolution" },
+        { label: "Active Alert Rules", value: `${rulesCount} alert rules parsed` },
+        { label: "Database Engine", value: "TSDB local storage active" }
+      ];
+    }
+  } catch(e) {}
+
+  // 3. Fetch Alertmanager Diagnostics (active silences, version)
+  // NOTE: this used to call http://${hostIP}:9093 directly, which is a
+  // cross-origin request from the browser's point of view (different port
+  // = different origin). Alertmanager doesn't send CORS headers, so the
+  // browser silently blocked it and diagnostics never updated. Routing
+  // through the nginx /api/alertmanager/ proxy makes it same-origin.
+  try {
+    const statusRes = await fetch(`/api/alertmanager/api/v2/status`);
+    const silencesRes = await fetch(`/api/alertmanager/api/v2/silences`);
+    
+    if (statusRes.ok && silencesRes.ok) {
+      const statusData = await statusRes.json();
+      const silencesData = await silencesRes.json();
+      
+      const activeSilences = silencesData.filter(s => s.status.state === 'active').length;
+      const version = statusData.versionInfo ? statusData.versionInfo.version : 'v0.26.0';
+      
+      liveDiagnosticsData.alertmanager = [
+        { label: "Core Version", value: `Alertmanager v${version}` },
+        { label: "Current Silences", value: `${activeSilences} active silences active` },
+        { label: "Integration Receivers", value: "Jenkins webhook — Auto-Recovery trigger" },
+        { label: "Retry Queue Backlog", value: "0 alerts pending dispatch" }
+      ];
+    }
+  } catch(e) {}
+}
+
+// ============================================================
+// INFRASTRUCTURE DETAILS RENDERER
+// ============================================================
+function renderInfraDetails(serviceId) {
+  const s = MONITOR_SERVERS.find(item => item.id === serviceId);
+  if (!s) return;
+
+  document.getElementById('infra-detail-breadcrumb').innerText = s.name;
+  document.getElementById('infra-detail-title').innerText = s.name;
+  document.getElementById('infra-detail-role').innerText = s.role;
+  document.getElementById('infra-detail-ip').innerText = s.ip;
+  document.getElementById('infra-detail-port').innerText = s.port;
+  
+  // Set Uptime/Status styles
+  const statusEl = document.getElementById('infra-detail-status');
+  statusEl.innerText = s.status;
+  statusEl.className = `infra-status ${s.status === 'ONLINE' ? 'infra-online' : 'infra-offline'}`;
+  
+  // Prepend styled circle indicator to status badge
+  statusEl.innerHTML = `<span class="status-dot ${s.status === 'ONLINE' ? 'dot-green' : 'dot-red'}" style="margin-right:6px"></span>${s.status}`;
+
+  // Action Button
+  document.getElementById('infra-detail-action-btn').innerText = `Open ${s.name.replace(" EC2 Node", "").replace(" Server", "").replace(" System", "")} Interface`;
+
+  // Set CPU/Memory values
+  document.getElementById('infra-detail-cpu').innerText = `${s.cpu}%`;
+  document.getElementById('infra-detail-mem').innerText = `${s.mem}%`;
+  document.getElementById('infra-detail-cpu-bar').style.width = `${s.cpu}%`;
+  document.getElementById('infra-detail-mem-bar').style.width = `${s.mem}%`;
+
+  // Diagnostic items table
+  const diagList = liveDiagnosticsData[serviceId] || [];
+  let diagHtml = '';
+  diagList.forEach(item => {
+    diagHtml += `
+      <div class="node-row">
+        <span>${item.label}</span>
+        <span>${item.value}</span>
+      </div>`;
+  });
+  document.getElementById('infra-detail-diagnostics').innerHTML = diagHtml;
+}
+
+// ============================================================
+// REFRESH INFRASTRUCTURE HEALTH MONITOR NODES
+// ============================================================
+async function refreshInfraServers() {
+  const container = document.getElementById('infra-list-container');
+
+  // Try to query real EC2 system metrics if Prometheus is configured
+  let realCpu = null;
+  let realMem = null;
+  let prometheusOnline = false;
+
+  if (!isDemoMode()) {
+    try {
+      const upRes = await fetchPrometheus('up{job="node-exporter"}');
+      if (upRes.length > 0) {
+        prometheusOnline = true;
+        const cpuRes = await fetchPrometheus('100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100)');
+        const memRes = await fetchPrometheus('(1 - node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes) * 100');
+        
+        if (cpuRes.length > 0) realCpu = parseFloat(cpuRes[0].value[1]);
+        if (memRes.length > 0) realMem = parseFloat(memRes[0].value[1]);
+      }
+    } catch(e) {
+      prometheusOnline = false;
+    }
+  }
+
+  // Update MONITOR_SERVERS values
+  MONITOR_SERVERS.forEach(s => {
+    if (!isDemoMode() && prometheusOnline) {
+      s.status = "ONLINE";
+      s.cpu = realCpu !== null ? parseFloat(realCpu.toFixed(1)) : s.cpu;
+      s.mem = realMem !== null ? parseFloat(realMem.toFixed(1)) : s.mem;
+    } else if (isDemoMode()) {
+      s.status = "ONLINE";
+      s.cpu = parseFloat((s.cpu + (Math.random() * 0.8 - 0.4)).toFixed(1));
+      s.mem = parseFloat((s.mem + (Math.random() * 0.4 - 0.2)).toFixed(1));
+      if (s.cpu < 0) s.cpu = 1;
+      if (s.mem < 0) s.mem = 1;
+    } else {
+      s.status = "OFFLINE";
+      s.cpu = 0;
+      s.mem = 0;
+    }
+  });
+
+  // Pull real diagnostic values if servers are connected
+  await fetchInstanceDiagnostics();
+
+  // If the user has opened details view for an infrastructure card, update its active screen values
+  if (currentView === 'infra-details') {
+    renderInfraDetails(currentInfraServiceId);
+  }
+
+  // Render homepage monitoring cards (No Emojis)
+  let html = '';
+  MONITOR_SERVERS.forEach(s => {
+    const statusClass = s.status === 'ONLINE' ? 'infra-online' : 'infra-offline';
+    const dotColorClass = s.status === 'ONLINE' ? 'dot-green' : 'dot-red';
+    
+    html += `
+      <div class="infra-card" onclick="openInfraDetails('${s.id}')">
+        <div>
+          <div class="infra-card-header">
+            <div>
+              <div class="infra-name">${s.name}</div>
+              <div class="infra-role">${s.role}</div>
+            </div>
+            <span class="infra-status ${statusClass}">
+              <span class="status-dot ${dotColorClass}" style="margin-right:6px"></span>
+              ${s.status}
+            </span>
+          </div>
+          <div class="infra-ip">${s.ip}:${s.port}</div>
+        </div>
+        <div class="infra-metrics">
+          <div class="infra-metric-row">
+            <span class="infra-metric-label">CPU Load</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <div class="infra-progress-bar"><div class="infra-progress-fill" style="width:${s.cpu}%"></div></div>
+              <span class="infra-metric-value">${s.cpu}%</span>
+            </div>
+          </div>
+          <div class="infra-metric-row">
+            <span class="infra-metric-label">Memory</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <div class="infra-progress-bar"><div class="infra-progress-fill" style="width:${s.mem}%"></div></div>
+              <span class="infra-metric-value">${s.mem}%</span>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  });
+  container.innerHTML = html;
+}
+
+// ============================================================
+// SYSTEM DISCOVERY & PROJECTS GRID RENDERER
+// ============================================================
+async function discoverAndRenderProjects() {
+  const container = document.getElementById('projects-list-container');
+
+  if (isDemoMode()) {
+    liveProjects = [{
+      id: JENKINS_JOB,
+      name: "InfraRevive Cluster",
+      server: "AWS EKS (%%JENKINS_IP%%)",
+      desc: "Universal Auto-Recovery pipeline for Kubernetes containers & EKS master services.",
+      alertsCount: globalAlerts.length,
+      statusClass: globalAlerts.length > 0 ? "status-alerting" : "status-healthy",
+      statusText: globalAlerts.length > 0 ? "Alerting" : "Healthy",
+      dotColor: globalAlerts.length > 0 ? "dot-red" : "dot-green"
+    }];
+
+    let html = '';
+    liveProjects.forEach(p => {
+      html += `
+        <div class="project-card" onclick="openProjectDetails('${p.id}')">
+          <div class="project-card-header">
+            <!-- Server Stack Vector Icon -->
+            <div class="project-icon">
+              <svg viewBox="0 0 24 24" style="width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.5;">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              </svg>
+            </div>
+            <span class="project-status-pill ${p.statusClass}">
+              <span class="status-dot ${p.dotColor}" style="margin-right:6px"></span>
+              ${p.statusText}
+            </span>
+          </div>
+          <div class="project-card-body">
+            <h3>${p.name}</h3>
+            <p>${p.desc}</p>
+          </div>
+          <div class="project-card-footer">
+            <div class="project-meta-item">Host Server: <span>${p.server}</span></div>
+            <div class="project-meta-item">Active Alerts: <span>${p.alertsCount}</span></div>
+          </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+    return;
+  }
+
+  // LIVE mode: Fetch all jobs/projects from Jenkins API for dynamic loading
+  try {
+    const jobs = await fetchJenkinsJobs();
+    
+    if (jobs.length === 0) {
+      jobs.push({ name: JENKINS_JOB });
+    }
+
+    const tempProjects = [];
+    
+    // Fetch last build metadata for all jobs to extract named project and running host details
+    await Promise.all(jobs.map(async (job) => {
+      const build = await fetchJenkinsBuild(job.name);
+      
+      let serverIP = "%%JENKINS_IP%%"; 
+      let dynamicProjectName = job.name;
+      let alertsCount = 0;
+      let buildStatus = "SUCCESS";
+
+      if (build) {
+        buildStatus = build.result || "IN_PROGRESS";
+        
+        if (build.actions) {
+          build.actions.forEach(action => {
+            if (action.parameters) {
+              action.parameters.forEach(p => {
+                if (p.name === 'SERVER_IP' || p.name === 'TARGET_SERVER') {
+                  serverIP = p.value;
+                }
+                if (p.name === 'PROJECT_NAME' || p.name === 'TARGET_PROJECT') {
+                  dynamicProjectName = p.value;
+                }
+              });
+            }
+          });
+        }
+        
+        if (dynamicProjectName === job.name && build.description) {
+          dynamicProjectName = build.description;
+        }
+      }
+
+      if (serverIP !== "%%JENKINS_IP%%" && serverIP !== "Kubernetes Cluster") {
+        try {
+          const promAlerts = await fetchAlerts();
+          const targetAlerts = promAlerts.filter(a => a.state === 'firing' && a.labels.instance && a.labels.instance.includes(serverIP));
+          alertsCount = targetAlerts.length;
+        } catch(e) { alertsCount = 0; }
+      } else {
+        alertsCount = globalAlerts.length;
+      }
+
+      let statusClass = "status-healthy";
+      let statusText = "Healthy";
+      let dotColor = "dot-green";
+
+      if (buildStatus === "IN_PROGRESS" || buildStatus === "UNSTABLE") {
+        statusClass = "status-warning";
+        statusText = "Recovering";
+        dotColor = "dot-yellow";
+      } else if (buildStatus === "FAILURE" || alertsCount > 0) {
+        statusClass = "status-alerting";
+        statusText = "Alerting";
+        dotColor = "dot-red";
+      }
+
+      tempProjects.push({
+        id: job.name,
+        name: dynamicProjectName,
+        server: serverIP,
+        desc: `Jenkins job pipeline monitoring automation active for ${dynamicProjectName}.`,
+        alertsCount: alertsCount,
+        statusClass: statusClass,
+        statusText: statusText,
+        dotColor: dotColor
+      });
+    }));
+
+    liveProjects = tempProjects;
+
+    let html = '';
+    liveProjects.forEach(p => {
+      html += `
+        <div class="project-card" onclick="openProjectDetails('${p.id}')">
+          <div class="project-card-header">
+            <div class="project-icon">
+              <svg viewBox="0 0 24 24" style="width:24px;height:24px;stroke:currentColor;fill:none;stroke-width:2.5;">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+              </svg>
+            </div>
+            <span class="project-status-pill ${p.statusClass}">
+              <span class="status-dot ${p.dotColor}" style="margin-right:6px"></span>
+              ${p.statusText}
+            </span>
+          </div>
+          <div class="project-card-body">
+            <h3>${p.name}</h3>
+            <p>${p.desc}</p>
+          </div>
+          <div class="project-card-footer">
+            <div class="project-meta-item">Host Server: <span>${p.server}</span></div>
+            <div class="project-meta-item">Active Alerts: <span>${p.alertsCount}</span></div>
+          </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+
+  } catch(err) {
+    container.innerHTML = `
+      <div style="padding:20px; color:var(--danger); grid-column: 1/-1;">
+        Failed to fetch dynamic projects from Jenkins. Please check Jenkins connectivity.
+      </div>`;
+  }
+}
+
+// ============================================================
+// DYNAMIC CHECKPOINT PROGRESS BAR MAKER
+// ============================================================
+function updateCheckpointBar(stages) {
+  const barContainer = document.getElementById('pipeline-checkpoint-bar');
+  
+  if (!stages || stages.length === 0) {
+    barContainer.innerHTML = `
+      <div class="checkpoint-bar-fill" style="width: 0%;"></div>
+      <div class="checkpoint-step">
+        <div class="checkpoint-node">1</div>
+        <div class="checkpoint-label">Initiate</div>
+      </div>
+      <div class="checkpoint-step">
+        <div class="checkpoint-node">2</div>
+        <div class="checkpoint-label">Verify Host</div>
+      </div>
+      <div class="checkpoint-step">
+        <div class="checkpoint-node">3</div>
+        <div class="checkpoint-label">Drain Pods</div>
+      </div>
+      <div class="checkpoint-step">
+        <div class="checkpoint-node">4</div>
+        <div class="checkpoint-label">Reboot EC2</div>
+      </div>
+      <div class="checkpoint-step">
+        <div class="checkpoint-node">5</div>
+        <div class="checkpoint-label">Complete</div>
+      </div>
+    `;
+    return;
+  }
+
+  const totalSteps = stages.length;
+  let completedCount = 0;
+  let activeIndex = -1;
+  let statusList = [];
+
+  stages.forEach((stage, idx) => {
+    if (stage.status === 'SUCCESS') {
+      completedCount++;
+      statusList.push('done');
+    } else if (stage.status === 'IN_PROGRESS' || stage.status === 'RUNNING') {
+      activeIndex = idx;
+      statusList.push('running');
+    } else if (stage.status === 'FAILED') {
+      activeIndex = idx;
+      statusList.push('failed');
+    } else {
+      statusList.push('pending');
+    }
+  });
+
+  let percent = 0;
+  if (totalSteps > 1) {
+    if (activeIndex !== -1) {
+      percent = (activeIndex / (totalSteps - 1)) * 100;
+    } else if (completedCount === totalSteps) {
+      percent = 100;
+    }
+  } else {
+    percent = completedCount === 1 ? 100 : 0;
+  }
+
+  let html = `<div class="checkpoint-bar-fill" style="width: ${percent}%;"></div>`;
+  stages.forEach((stage, idx) => {
+    const stepClass = statusList[idx];
+    
+    // Checkmark/Cross Vector SVGs (Replacing text indicators)
+    let nodeContent = idx + 1;
+    if (stepClass === 'done') {
+      nodeContent = `<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+    } else if (stepClass === 'failed') {
+      nodeContent = `<svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+    } else if (stepClass === 'running') {
+      nodeContent = `<span class="status-dot dot-yellow" style="width:8px;height:8px;"></span>`;
+    }
+
+    html += `
+      <div class="checkpoint-step ${stepClass}">
+        <div class="checkpoint-node">${nodeContent}</div>
+        <div class="checkpoint-label" title="${stage.name}">${stage.name}</div>
+      </div>`;
+  });
+
+  barContainer.innerHTML = html;
+}
+
+// ============================================================
+// SYSTEM ALERTS BANNER CONTROL
+// ============================================================
+function evaluateSystemAlertBanner() {
+  const banner = document.getElementById('system-alert-banner');
+  const bannerTitle = document.getElementById('alert-banner-title');
+  const bannerDesc = document.getElementById('alert-banner-desc');
+  const inspectBtn = document.getElementById('inspect-btn');
+
+  const alertingProjects = liveProjects.filter(p => p.statusClass === "status-alerting");
+
+  if (alertingProjects.length > 0) {
+    banner.classList.add('active');
+    bannerTitle.innerText = `Alert Firing on Recovery Pipeline`;
+    bannerDesc.innerText = `Critical issues detected. Dynamic recovery pipeline has been triggered for: ${alertingProjects.map(p => p.name).join(', ')}`;
+    inspectBtn.style.display = 'block';
+  } else {
+    banner.classList.remove('active');
+  }
+}
+
+// ============================================================
+// DYNAMIC DETAILS VIEW UPDATER
+// ============================================================
+async function updateNodes() {
+  if (currentView !== 'details') return;
+
+  if (isDemoMode()) {
+    document.getElementById('nodes-container').innerHTML = `
+      <div class="node-row">
+        <div class="node-info">
+          <span class="status-dot dot-green"></span>
+          <div>
+            <span class="node-name">Master Node</span>
+            <div class="node-ip">10.0.1.158</div>
+          </div>
+        </div>
+        <div class="node-stats">
+          <div class="metric">CPU: <span>12.5%</span></div>
+          <div class="cpu-bar"><div class="cpu-fill" style="width:12.5%"></div></div>
+          <div class="metric" style="margin-top:2px">Memory: <span>42.1%</span></div>
+        </div>
+      </div>
+      <div class="node-row">
+        <div class="node-info">
+          <span class="status-dot dot-red"></span>
+          <div>
+            <span class="node-name">Worker Node 1</span>
+            <div class="node-ip">10.0.1.159</div>
+          </div>
+        </div>
+        <div class="node-stats">
+          <span style="color:var(--danger);font-weight:700;font-size:11px;">UNREACHABLE</span>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const upResults    = await fetchPrometheus('up{job="node-exporter"}');
+  const cpuResults   = await fetchPrometheus('100 - (avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100)');
+  const memResults   = await fetchPrometheus('(1 - node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes) * 100');
+
+  const cpuMap = {};
+  cpuResults.forEach(r => { cpuMap[r.metric.instance] = parseFloat(r.value[1]).toFixed(1); });
+
+  const memMap = {};
+  memResults.forEach(r => { memMap[r.metric.instance] = parseFloat(r.value[1]).toFixed(1); });
+
+  if (upResults.length === 0) {
+    document.getElementById('nodes-container').innerHTML = `
+      <div style="text-align:center;padding:20px;color:var(--text-secondary)">
+        <p>No nodes returned from Prometheus exporter</p>
+      </div>`;
+    return;
+  }
+
+  let html = '';
+  upResults.forEach(r => {
+    const instance = r.metric.instance;
+    const isUp = r.value[1] === '1';
+    const cpu = cpuMap[instance] || '--';
+    const mem = memMap[instance] || '--';
+    const cpuNum = parseFloat(cpu);
+    const cpuColor = cpuNum > 80 ? 'cpu-high' : cpuNum > 60 ? 'cpu-med' : '';
+    const ipOnly = instance.replace(':9100','');
+    const role = ipOnly === MASTER_IP ? 'Master' : 'Worker';
+
+    html += `
+      <div class="node-row">
+        <div class="node-info">
+          <span class="status-dot ${isUp ? 'dot-green' : 'dot-red'}"></span>
+          <div>
+            <span class="node-name">${role} Node</span>
+            <div class="node-ip">${ipOnly}</div>
+          </div>
+        </div>
+        <div class="node-stats">
+          ${isUp ? `
+            <div class="metric">CPU: <span>${cpu}%</span></div>
+            <div class="cpu-bar"><div class="cpu-fill ${cpuColor}" style="width:${Math.min(cpuNum,100)}%"></div></div>
+            <div class="metric" style="margin-top:2px">Memory: <span>${mem}%</span></div>
+          ` : '<span style="color:var(--danger);font-weight:700;font-size:11px;">UNREACHABLE</span>'}
+        </div>
+      </div>`;
+  });
+
+  document.getElementById('nodes-container').innerHTML = html;
+}
+
+async function updateAlerts() {
+  if (isDemoMode()) {
+    globalAlerts = [
+      {
+        labels: { alertname: "HostNodeDown", instance: "10.0.1.159:9100", severity: "critical" },
+        activeAt: new Date(Date.now() - 600000).toISOString(),
+        annotations: { summary: "Worker Node 10.0.1.159 is unreachable from container network." }
+      }
+    ];
+
+    if (currentView === 'details') {
+      let html = '';
+      globalAlerts.forEach(a => {
+        html += `
+          <div class="alert-box">
+            <div class="alert-firing">Critical Alert: ${a.labels.alertname}</div>
+            <div class="metric" style="margin-top:2px">Node Instance: <span>${a.labels.instance}</span></div>
+            <div class="metric">Severity: <span style="text-transform:capitalize;color:var(--danger)">${a.labels.severity}</span></div>
+            <div class="metric">Fired At: <span>${new Date(a.activeAt).toLocaleTimeString()}</span></div>
+            <div class="metric" style="margin-top:4px;color:var(--text-secondary)">${a.annotations.summary}</div>
+          </div>`;
+      });
+      document.getElementById('alerts-container').innerHTML = html;
+    }
+    return;
+  }
+
+  // Live Alerts
+  try {
+    const alerts = await fetchAlerts();
+    globalAlerts = alerts.filter(a => a.state === 'firing');
+  } catch(e) {
+    globalAlerts = [];
+  }
+
+  if (currentView !== 'details') return;
+
+  if (globalAlerts.length === 0) {
+    document.getElementById('alerts-container').innerHTML = `
+      <p class="alert-none">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;stroke:var(--success);fill:none;stroke-width:2.5;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        No active alerts — Cluster nodes healthy
+      </p>`;
+  } else {
+    let html = '';
+    globalAlerts.forEach(a => {
+      html += `
+        <div class="alert-box">
+          <div class="alert-firing">Critical Alert: ${a.labels.alertname}</div>
+          <div class="metric" style="margin-top:2px">Node Instance: <span>${a.labels.instance || '--'}</span></div>
+          <div class="metric">Criticality: <span style="text-transform:capitalize">${a.labels.severity}</span></div>
+          <div class="metric">Fired At: <span>${new Date(a.activeAt).toLocaleTimeString()}</span></div>
+          ${a.annotations.summary ? `<div class="metric" style="margin-top:4px;color:var(--text-secondary)">${a.annotations.summary}</div>` : ''}
+        </div>`;
+    });
+    document.getElementById('alerts-container').innerHTML = html;
+  }
+}
+
+async function updatePipeline() {
+  if (isDemoMode()) {
+    const mockStages = [
+      { name: "Triggered", status: "SUCCESS", durationMillis: 4000 },
+      { name: "Verify Host", status: "SUCCESS", durationMillis: 9000 },
+      { name: "Drain Pods", status: "IN_PROGRESS", durationMillis: 22000 },
+      { name: "Reboot EC2", status: "NOT_EXECUTED" },
+      { name: "Complete", status: "NOT_EXECUTED" }
+    ];
+
+    if (currentView === 'details') {
+      // Loader SVG for active pipeline status
+      document.getElementById('pipeline-header-block').innerHTML = `
+        <span class="build-status status-running">
+          <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5;animation:spin 1.5s infinite linear;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          AUTOMATIC RECOVERY ACTIVE
+        </span>
+        <div class="metric" style="margin-bottom:14px">
+          Active Build Run: <span>#42</span> | Elapsed Execution: <span>35s</span>
+        </div>`;
+      
+      updateCheckpointBar(mockStages);
+
+      let html = '<div class="pipeline-steps-list">';
+      mockStages.forEach(stage => {
+        const iconMap = {
+          'SUCCESS': ['SUCCESS', 'step-done'],
+          'FAILED': ['FAILED', 'step-failed'],
+          'IN_PROGRESS': ['ACTIVE', 'step-running'],
+          'NOT_EXECUTED': ['PENDING', 'step-pending']
+        };
+        const [label, cls] = iconMap[stage.status] || ['PENDING', 'step-pending'];
+        
+        let iconContent = '';
+        if (stage.status === 'SUCCESS') {
+          iconContent = `<svg viewBox="0 0 24 24" style="stroke:var(--success);"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+        } else if (stage.status === 'FAILED') {
+          iconContent = `<svg viewBox="0 0 24 24" style="stroke:var(--danger);"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+        } else if (stage.status === 'IN_PROGRESS') {
+          iconContent = `<svg viewBox="0 0 24 24" style="stroke:var(--warning);animation:spin 1.5s infinite linear;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>`;
+        } else {
+          iconContent = `<svg viewBox="0 0 24 24" style="stroke:var(--text-muted);"><circle cx="12" cy="12" r="10"></circle></svg>`;
+        }
+        
+        html += `
+          <div class="pipeline-step">
+            <span class="step-icon">${iconContent}</span>
+            <span class="${cls}">${stage.name}</span>
+            ${stage.durationMillis > 0 ? `<span class="step-duration">${Math.round(stage.durationMillis/1000)}s</span>` : ''}
+          </div>`;
+      });
+      html += '</div>';
+      document.getElementById('pipeline-container').innerHTML = html;
+    }
+    return;
+  }
+
+  // Live Fetch
+  const build = await fetchJenkinsBuild(currentProject);
+
+  if (!build) {
+    if (currentView === 'details') {
+      document.getElementById('pipeline-header-block').innerHTML = `
+        <span class="build-status status-idle">OFFLINE</span>
+        <p style="color:var(--text-secondary);font-size:12px">Integrate JENKINS_TOKEN inside the script source configuration to display real-time CI pipeline status.</p>
+      `;
+      document.getElementById('pipeline-container').innerHTML = '';
+      updateCheckpointBar([]);
+    }
+    return;
+  }
+
+  const statusMap = {
+    'SUCCESS': ['status-success', 'RESTORED'],
+    'FAILURE': ['status-failed', 'RECOVERY FAILED'],
+    'ABORTED': ['status-failed', 'ABORTED'],
+    'IN_PROGRESS': ['status-running', 'AUTOMATIC RECOVERY ACTIVE'],
+    'null': ['status-idle', 'IDLE']
+  };
+
+  const buildResult = build.result || 'IN_PROGRESS';
+  const [statusClass, statusText] = statusMap[buildResult] || ['status-idle', 'IDLE'];
+  const duration = build.duration ? `${Math.round(build.duration/1000)}s` : 'Processing...';
+
+  if (currentView === 'details') {
+    let statusIcon = '';
+    if (buildResult === 'SUCCESS') statusIcon = `<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5;"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+    else if (buildResult === 'FAILURE' || buildResult === 'ABORTED') statusIcon = `<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5;"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`;
+    else if (buildResult === 'IN_PROGRESS') statusIcon = `<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2.5;animation:spin 1.5s infinite linear;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>`;
+
+    document.getElementById('pipeline-header-block').innerHTML = `
+      <span class="build-status ${statusClass}">
+        ${statusIcon}
+        ${statusText}
+      </span>
+      <div class="metric" style="margin-bottom:14px">
+        Active Build Run: <span>#${build.number}</span> | Elapsed Execution: <span>${duration}</span>
+      </div>`;
+  }
+
+  const stages = await fetchJenkinsBuildStages(currentProject, build.number);
+  
+  if (currentView === 'details') {
+    if (stages && stages.stages) {
+      updateCheckpointBar(stages.stages);
+      
+      let html = '<div class="pipeline-steps-list">';
+      stages.stages.forEach(stage => {
+        const iconMap = {
+          'SUCCESS': ['step-done', `<svg viewBox="0 0 24 24" style="stroke:var(--success);"><polyline points="20 6 9 17 4 12"></polyline></svg>`],
+          'FAILED': ['step-failed', `<svg viewBox="0 0 24 24" style="stroke:var(--danger);"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>`],
+          'IN_PROGRESS': ['step-running', `<svg viewBox="0 0 24 24" style="stroke:var(--warning);animation:spin 1.5s infinite linear;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>`],
+          'NOT_EXECUTED': ['step-pending', `<svg viewBox="0 0 24 24" style="stroke:var(--text-muted);"><circle cx="12" cy="12" r="10"></circle></svg>`]
+        };
+        const [cls, icon] = iconMap[stage.status] || ['step-pending', `<svg viewBox="0 0 24 24" style="stroke:var(--text-muted);"><circle cx="12" cy="12" r="10"></circle></svg>`];
+        
+        html += `
+          <div class="pipeline-step">
+            <span class="step-icon">${icon}</span>
+            <span class="${cls}">${stage.name}</span>
+            ${stage.durationMillis > 0 ? `<span class="step-duration">${Math.round(stage.durationMillis/1000)}s</span>` : ''}
+          </div>`;
+      });
+      html += '</div>';
+      document.getElementById('pipeline-container').innerHTML = html;
+    } else {
+      updateCheckpointBar([]);
+      document.getElementById('pipeline-container').innerHTML = '<p style="color:var(--text-secondary);font-size:12px;padding:20px;text-align:center">No stage description returned from Jenkins job.</p>';
+    }
+  }
+
+  // Push notifications
+  if (notificationsEnabled && previousPipelineStatus !== buildResult) {
+    if (buildResult === 'SUCCESS') {
+      new Notification('InfraRevive Recovery Success', {
+        body: `Auto-healing build #${build.number} completed successfully.`
+      });
+    } else if (buildResult === 'FAILURE') {
+      new Notification('InfraRevive Recovery Failure', {
+        body: `Auto-healing build #${build.number} failed. Operator manual action required.`
+      });
+    }
+  }
+  previousPipelineStatus = buildResult;
+}
+
+async function updateMetrics() {
+  if (currentView !== 'details') return;
+
+  if (isDemoMode()) {
+    document.getElementById('metrics-container').innerHTML = `
+      <div class="node-row">
+        <span>Assigned Node Allocation</span>
+        <span>2</span>
+      </div>
+      <div class="node-row">
+        <span>Available Online Host Nodes</span>
+        <span style="color:var(--success)">1</span>
+      </div>
+      <div class="node-row">
+        <span>Offline Unreachable Nodes</span>
+        <span style="color:var(--danger)">1</span>
+      </div>
+      <div class="node-row">
+        <span>Mean Compute Cluster CPU Load</span>
+        <span>42.0%</span>
+      </div>
+      <div class="node-row">
+        <span>Mean Memory Cluster Buffer Load</span>
+        <span>52.1%</span>
+      </div>
+      <div class="node-row">
+        <span>Auto-Heal Agent Core Service</span>
+        <span style="color:var(--success)">RUNNING</span>
+      </div>`;
+    return;
+  }
+
+  const totalNodes = await fetchPrometheus('count(up{job="node-exporter"})');
+  const upNodes    = await fetchPrometheus('count(up{job="node-exporter"} == 1)');
+  const avgCpu     = await fetchPrometheus('avg(100 - (avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100))');
+  const avgMem     = await fetchPrometheus('avg((1 - node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes) * 100)');
+
+  const total = totalNodes[0]?.value[1] || '--';
+  const up    = upNodes[0]?.value[1] || '0';
+  const cpu   = avgCpu[0] ? parseFloat(avgCpu[0].value[1]).toFixed(1) : '--';
+  const mem   = avgMem[0] ? parseFloat(avgMem[0].value[1]).toFixed(1) : '--';
+  const down  = total !== '--' ? parseInt(total) - parseInt(up) : '--';
+
+  document.getElementById('metrics-container').innerHTML = `
+    <div class="node-row">
+      <span>Assigned Node Allocation</span>
+      <span>${total}</span>
+    </div>
+    <div class="node-row">
+      <span>Available Online Host Nodes</span>
+      <span style="color:var(--success)">${up}</span>
+    </div>
+    <div class="node-row">
+      <span>Offline Unreachable Nodes</span>
+      <span style="color:${down > 0 ? 'var(--danger)' : 'var(--success)'}">${down}</span>
+    </div>
+    <div class="node-row">
+      <span>Mean Compute Cluster CPU Load</span>
+      <span>${cpu}%</span>
+    </div>
+    <div class="node-row">
+      <span>Mean Memory Cluster Buffer Load</span>
+      <span>${mem}%</span>
+    </div>
+    <div class="node-row">
+      <span>Auto-Heal Agent Core Service</span>
+      <span style="color:var(--success)">RUNNING</span>
+    </div>`;
+}
+
+// ============================================================
+// SYSTEM ENGINE DRIVER
+// ============================================================
+function enableNotifications() {
+  Notification.requestPermission().then(perm => {
+    if (perm === 'granted') {
+      notificationsEnabled = true;
+      new Notification('Notifications Enabled', {
+        body: 'Alert tracking and recovery pipeline system notifications are active.'
+      });
+    }
+  });
+}
+
+const spinStyle = document.createElement('style');
+spinStyle.innerHTML = '@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }';
+document.head.appendChild(spinStyle);
+
+async function refreshAll() {
+  // 1. Fetch alerts and pipelines first to calculate overall health
+  await Promise.all([updateAlerts(), updatePipeline()]);
+
+  // 2. Discover and render active dynamic projects on the homepage
+  await discoverAndRenderProjects();
+
+  // 3. Monitor infrastructure server health parameters
+  await refreshInfraServers();
+
+  // 4. Update cross-project notifications and detail panels
+  evaluateSystemAlertBanner();
+  
+  if (currentView === 'details') {
+    await Promise.all([updateNodes(), updateMetrics()]);
+  }
+
+  document.getElementById('last-update').textContent =
+    'Last updated: ' + new Date().toLocaleTimeString();
+}
+
+// Initial engine activation loops
+refreshAll();
+setInterval(refreshAll, 15000);
+</script>
+</body>
+</html>

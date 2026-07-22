@@ -1,0 +1,31 @@
+groups:
+  - name: node_alerts
+    interval: 15s
+    rules:
+
+      - alert: NodeDown
+        expr: up{job="node-exporter"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Kubernetes worker node is DOWN"
+          description: "Node {{ $labels.instance }} has been unreachable for more than 30 seconds."
+
+      - alert: NodeHighCPU
+        expr: 100 - (avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU on {{ $labels.instance }}"
+          description: "CPU usage above 85% for 2 minutes."
+
+      - alert: NodeHighMemory
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 < 10
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low memory on {{ $labels.instance }}"
+          description: "Available memory below 10%."

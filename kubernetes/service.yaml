@@ -1,0 +1,46 @@
+# Flask API Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: flask-api-service
+  namespace: infrarevive
+spec:
+  selector:
+    app: flask-api
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+      nodePort: 30500
+  type: NodePort
+---
+# Frontend Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: infrarevive
+spec:
+  selector:
+    app: frontend
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+      nodePort: 30080
+  type: NodePort
+---
+# MySQL Service (ClusterIP - internal only)
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-service
+  namespace: infrarevive
+spec:
+  selector:
+    app: mysql
+  ports:
+    - protocol: TCP
+      port: 3306
+      targetPort: 3306
+  type: ClusterIP
