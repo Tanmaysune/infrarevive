@@ -1,12 +1,31 @@
 #!/bin/bash
 cd ~/project/infrarevive
 
-# Get IPs from Terraform
+# Refresh Terraform state before reading any outputs. AWS assigns a NEW
+# public IP whenever a stopped EC2 instance is started again (no Elastic
+# IP is used here), and stop-all.sh / start-all.sh stop/start instances
+# directly via the AWS CLI -- Terraform never sees that happen. Without
+# this refresh, "terraform output" below can return the OLD IP, or an
+# empty string if state happened to be read mid-restart.
+(cd terraform && terraform init -reconfigure -input=false > /dev/null && \
+                 terraform apply -refresh-only -auto-approve)
+
+# Get IPs from Terraform (state is now guaranteed current)
 JENKINS_IP=$(cd terraform && terraform output -raw jenkins_public_ip)
 MASTER_IP=$(cd terraform && terraform output -raw master_public_ip)
 WORKER0_IP=$(cd terraform && terraform output -json worker_public_ips | jq -r '.[0]')
 WORKER1_IP=$(cd terraform && terraform output -json worker_public_ips | jq -r '.[1]')
 WORKER2_IP=$(cd terraform && terraform output -json worker_public_ips | jq -r '.[2]')
+
+# Fail loud instead of silently writing broken configs with empty IPs
+for pair in "JENKINS_IP:$JENKINS_IP" "MASTER_IP:$MASTER_IP" "WORKER0_IP:$WORKER0_IP" "WORKER1_IP:$WORKER1_IP" "WORKER2_IP:$WORKER2_IP"; do
+    name="${pair%%:*}"; val="${pair#*:}"
+    if [ -z "$val" ] || [ "$val" == "None" ]; then
+        echo "ERROR: $name is empty/None even after terraform refresh. Aborting instead of writing broken configs."
+        echo "Run 'cd terraform && terraform apply -refresh-only' manually and inspect 'terraform output' before retrying."
+        exit 1
+    fi
+done
 
 echo "Jenkins  : $JENKINS_IP"
 echo "Master   : $MASTER_IP"
@@ -144,3 +163,4 @@ echo "================================================"
 echo "DASHBOARD  : http://$JENKINS_IP/infrarevive/"
 echo "================================================"
 echo "Open the link above in any browser on any device."
+

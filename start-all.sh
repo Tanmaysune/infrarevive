@@ -31,6 +31,19 @@ echo "Waiting for instances to reach running state..."
 aws ec2 wait instance-running --instance-ids $JENKINS_ID $MASTER_ID $WORKER_IDS
 echo "All instances are running."
 
+# Keep Terraform's state in sync with real AWS now that instances are up.
+# This script itself reads live IPs via 'aws ec2 describe-instances' below
+# (not 'terraform output'), so it isn't directly exposed to stale-output
+# bugs -- but setup-config.sh, deploy-dashboard.sh, stop-all.sh, and the
+# Jenkins recovery pipeline all run 'terraform output' later in the same
+# workflow, and Terraform never finds out about the stop/start this script
+# just did unless something refreshes state. Doing it here, once instances
+# are confirmed running (so real public IPs actually exist to read), keeps
+# every downstream 'terraform output' call correct.
+(cd ~/project/infrarevive/terraform && \
+    terraform init -reconfigure -input=false > /dev/null && \
+    terraform apply -refresh-only -auto-approve)
+
 echo ""
 echo "--- Fetching new IPs ---"
 JENKINS_IP=$(aws ec2 describe-instances --instance-ids $JENKINS_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
@@ -339,3 +352,4 @@ echo "DASHBOARD  : http://$JENKINS_IP/infrarevive/"
 echo "================================================"
 echo "Open the dashboard link above in any browser."
 echo "Works from any device on any network."
+

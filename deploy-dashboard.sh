@@ -20,15 +20,21 @@ if [ -f .env ]; then
     source .env
     echo -e "${GREEN}IPs loaded from .env${NC}"
 else
-    # Fetch fresh from Terraform
+    # Refresh Terraform state before reading any outputs -- AWS assigns a
+    # NEW public IP whenever a stopped instance is started again, and
+    # start-all.sh/stop-all.sh do that via the AWS CLI directly, bypassing
+    # Terraform. Without this, "terraform output" below can return a stale
+    # or empty IP.
     cd terraform
+    terraform init -reconfigure -input=false > /dev/null
+    terraform apply -refresh-only -auto-approve
     JENKINS_IP=$(terraform output -raw jenkins_public_ip 2>/dev/null)
     MASTER_IP=$(terraform output -raw master_public_ip 2>/dev/null)
     WORKER0_IP=$(terraform output -json worker_public_ips 2>/dev/null | jq -r '.[0]')
     cd ..
 
-    if [ -z "$JENKINS_IP" ]; then
-        echo -e "${RED}ERROR: Cannot get Jenkins IP. Run ./start.sh first.${NC}"
+    if [ -z "$JENKINS_IP" ] || [ "$JENKINS_IP" == "None" ]; then
+        echo -e "${RED}ERROR: Cannot get Jenkins IP even after terraform refresh. Run ./start.sh first.${NC}"
         exit 1
     fi
 fi
@@ -73,3 +79,4 @@ echo -e "${GREEN}Dashboard deployed successfully.${NC}"
 echo ""
 echo -e "${CYAN}Open in browser: http://${JENKINS_IP}/infrarevive/${NC}"
 echo ""
+

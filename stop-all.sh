@@ -5,6 +5,13 @@ echo "=== STOPPING ALL INFRAREVIVE RESOURCES ==="
 # Get IPs and IDs from Terraform
 cd ~/project/infrarevive/terraform
 
+# Refresh state before reading outputs -- if this is being run shortly
+# after a previous stop/start cycle, Terraform's cached public IP for
+# Jenkins may be stale (AWS assigns a new one on every start unless an
+# Elastic IP is attached). Without this, the SSH call below can silently
+# fail against the wrong/old IP (errors are suppressed with 2>/dev/null).
+terraform init -reconfigure -input=false > /dev/null
+terraform apply -refresh-only -auto-approve
 JENKINS_IP=$(terraform output -raw jenkins_public_ip 2>/dev/null)
 JENKINS_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-jenkins" --query 'Reservations[0].Instances[0].InstanceId' --output text)
 MASTER_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-master" --query 'Reservations[0].Instances[0].InstanceId' --output text)
@@ -53,3 +60,4 @@ echo ""
 echo "S3 bucket and Terraform state are UNTOUCHED."
 echo "Dashboard will be unavailable until next start."
 echo "Run ./start-all.sh to bring everything back."
+

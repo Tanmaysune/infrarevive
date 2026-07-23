@@ -41,6 +41,16 @@ pipeline {
 
     options {
         disableConcurrentBuilds()
+        // A hung stage (e.g. "Terraform Destroy Dead Node" waiting forever
+        // on a slow/stuck AWS API call or a state lock) used to block this
+        // build indefinitely. disableConcurrentBuilds() only stops a NEW
+        // build from RUNNING while one is active -- it does not stop new
+        // builds from QUEUEING, so every time Alertmanager re-fired while
+        // this build sat stuck, another build queued up behind it forever
+        // (this is exactly the #9/#10 "Build #8 is already in progress"
+        // pile-up). Capping total runtime guarantees the build always ends,
+        // so the queue drains instead of growing without bound.
+        timeout(time: 25, unit: 'MINUTES')
     }
 
     environment {
@@ -69,8 +79,32 @@ pipeline {
 
         stage('Terraform Init') {
             steps {
-                dir("${TERRAFORM_DIR}") {
-                    sh "terraform init -reconfigure"
+                timeout(time: 3, unit: 'MINUTES') {
+                    dir("${TERRAFORM_DIR}") {
+                        sh "terraform init -reconfigure"
+                    }
+                }
+            }
+        }
+
+        stage('Terraform Refresh State') {
+            steps {
+                timeout(time: 3, unit: 'MINUTES') {
+                    dir("${TERRAFORM_DIR}") {
+                        // AWS assigns a NEW public IP to a stopped/started EC2
+                        // instance (no Elastic IP is used in this project).
+                        // stop-all.sh / start-all.sh stop and start instances
+                        // directly via the AWS CLI, bypassing Terraform entirely,
+                        // so Terraform's cached state still holds the OLD public
+                        // IP -- or an empty one if state was read mid-restart --
+                        // until something explicitly re-reads real AWS attributes.
+                        // Every "terraform output" call below depends on this
+                        // running first, or it can silently hand out stale IPs.
+                        // -lock-timeout=2m: fail with a clear "state locked"
+                        // error after 2 minutes instead of hanging indefinitely
+                        // if another terraform process still holds the lock.
+                        sh "terraform apply -refresh-only -auto-approve -lock-timeout=2m"
+                    }
                 }
             }
         }
@@ -149,12 +183,22 @@ pipeline {
 
         stage('Terraform Destroy Dead Node') {
             steps {
-                dir("${TERRAFORM_DIR}") {
-                    sh """
-                        terraform destroy \
-                            -target='aws_instance.k8s_workers[${env.DEAD_WORKER_INDEX}]' \
-                            -auto-approve
-                    """
+                // This is the stage that was hanging indefinitely (seen stuck
+                // at 8m46s+ with no end in sight). A real terraform destroy
+                // of a single EC2 instance normally takes well under a
+                // minute. If it hangs this long, either the state is locked
+                // by a leftover process, or the AWS API call itself is
+                // stuck -- either way, waiting forever is what caused builds
+                // to pile up in the queue. Bound it and fail loud instead.
+                timeout(time: 5, unit: 'MINUTES') {
+                    dir("${TERRAFORM_DIR}") {
+                        sh """
+                            terraform destroy \
+                                -target='aws_instance.k8s_workers[${env.DEAD_WORKER_INDEX}]' \
+                                -auto-approve \
+                                -lock-timeout=2m
+                        """
+                    }
                 }
                 echo "Dead EC2 node destroyed."
             }
@@ -162,14 +206,19 @@ pipeline {
 
         stage('Terraform Provision New Node') {
             steps {
-                dir("${TERRAFORM_DIR}") {
-                    // Target only the destroyed index so a plain apply can never
-                    // touch jenkins/master/other workers even if there is drift.
-                    sh """
-                        terraform apply \
-                            -target='aws_instance.k8s_workers[${env.DEAD_WORKER_INDEX}]' \
-                            -auto-approve
-                    """
+                // Target only the destroyed index so a plain apply can never
+                // touch jenkins/master/other workers even if there is drift.
+                // Bounded the same way as the destroy stage above -- an EC2
+                // apply hanging here would cause the exact same build pile-up.
+                timeout(time: 5, unit: 'MINUTES') {
+                    dir("${TERRAFORM_DIR}") {
+                        sh """
+                            terraform apply \
+                                -target='aws_instance.k8s_workers[${env.DEAD_WORKER_INDEX}]' \
+                                -auto-approve \
+                                -lock-timeout=2m
+                        """
+                    }
                 }
 
                 script {
@@ -341,6 +390,10 @@ ${allWorkerIps[2].trim()} ansible_user=ec2-user ansible_ssh_private_key_file=~/.
             echo "1. SSH key missing on Jenkins EC2"
             echo "2. Terraform state mismatch — run terraform init"
             echo "3. Kubeadm token expired — SSH master and regenerate"
+            echo "4. Stage hit its timeout (terraform destroy/apply took"
+            echo "   longer than 5 minutes) — check for a leftover terraform"
+            echo "   process on the Jenkins EC2 holding a state lock, or an"
+            echo "   AWS API issue (throttling, stuck instance termination)."
             echo "============================================"
         }
     }
