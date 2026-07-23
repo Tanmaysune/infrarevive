@@ -1,34 +1,90 @@
+def workerEc2State(int index) {
+    return sh(
+        script: """
+            aws ec2 describe-instances \
+              --filters 'Name=tag:Name,Values=infrarevive-worker-${index}' \
+              --query 'Reservations[0].Instances[0].State.Name' \
+              --output text
+        """,
+        returnStdout: true
+    ).trim()
+}
+
+def getWorkerPublicIpsFromAws() {
+    def ips = []
+    for (int i = 0; i < 3; i++) {
+        def ip = sh(
+            script: """
+                aws ec2 describe-instances \
+                  --filters 'Name=tag:Name,Values=infrarevive-worker-${i}' \
+                  --query 'Reservations[0].Instances[0].PublicIpAddress' \
+                  --output text
+            """,
+            returnStdout: true
+        ).trim()
+        ips.add((ip == 'None' || !ip) ? '' : ip)
+    }
+    return ips
+}
+
+def getWorkerPrivateIpsFromAws() {
+    def ips = []
+    for (int i = 0; i < 3; i++) {
+        def ip = sh(
+            script: """
+                aws ec2 describe-instances \
+                  --filters 'Name=tag:Name,Values=infrarevive-worker-${i}' \
+                  --query 'Reservations[0].Instances[0].PrivateIpAddress' \
+                  --output text
+            """,
+            returnStdout: true
+        ).trim()
+        if (ip == 'None' || !ip) {
+            error("Missing private IP for infrarevive-worker-${i} in AWS")
+        }
+        ips.add(ip)
+    }
+    return ips
+}
+
 def getValidWorkerIps() {
     def ips = []
     for (int i = 0; i < 10; i++) {
         def raw = sh(script: "terraform output -json worker_public_ips | jq -r '.[]'", returnStdout: true).trim()
         ips = raw ? raw.split("\n") as List : []
-        def allValid = ips.size() == 3 && ips.every { it != null && it.trim() != "" }
+        def allValid = ips.size() == 3 && ips.every { it != null && it.trim() != "" && it.trim() != 'null' }
         if (allValid) {
-            echo "Got valid worker IPs: ${ips}"
+            echo "Got valid worker IPs from Terraform: ${ips}"
             return ips
         }
-        echo "Worker IPs not ready yet (attempt ${i+1}/10): ${ips} -- retrying in 10s"
+        def awsIps = getWorkerPublicIpsFromAws()
+        def awsValid = awsIps.size() == 3 && awsIps.every { it != null && it.trim() != "" }
+        if (awsValid) {
+            echo "Got valid worker IPs from AWS: ${awsIps}"
+            return awsIps
+        }
+        echo "Worker IPs not ready yet (attempt ${i+1}/10): tf=${ips} aws=${awsIps} -- retrying in 10s"
         sleep 10
     }
     error("Worker IPs never became valid after 10 attempts -- aborting to avoid corrupt state")
 }
 
-// Private IPs are index-aligned with getValidWorkerIps() output since both
-// come from the same aws_instance.k8s_workers[*] resource. kubelet in this
-// project registers with its PRIVATE ip as INTERNAL-IP (no cloud-controller-
-// manager is installed, so EXTERNAL-IP is always <none> -- matching by
-// public IP against "kubectl get nodes -o wide", as this pipeline used to
-// do, can never succeed and silently fell back to a hardcoded worker index).
 def getValidWorkerPrivateIps() {
     def ips = []
     for (int i = 0; i < 10; i++) {
         def raw = sh(script: "terraform output -json worker_private_ips | jq -r '.[]'", returnStdout: true).trim()
         ips = raw ? raw.split("\n") as List : []
-        def allValid = ips.size() == 3 && ips.every { it != null && it.trim() != "" }
+        def allValid = ips.size() == 3 && ips.every { it != null && it.trim() != "" && it.trim() != 'null' }
         if (allValid) {
-            echo "Got valid worker private IPs: ${ips}"
+            echo "Got valid worker private IPs from Terraform: ${ips}"
             return ips
+        }
+        try {
+            def awsIps = getWorkerPrivateIpsFromAws()
+            echo "Got valid worker private IPs from AWS: ${awsIps}"
+            return awsIps
+        } catch (Exception e) {
+            echo "AWS private IP lookup failed (attempt ${i+1}/10): ${e.message}"
         }
         echo "Worker private IPs not ready yet (attempt ${i+1}/10): ${ips} -- retrying in 10s"
         sleep 10
@@ -41,15 +97,6 @@ pipeline {
 
     options {
         disableConcurrentBuilds()
-        // A hung stage (e.g. "Terraform Destroy Dead Node" waiting forever
-        // on a slow/stuck AWS API call or a state lock) used to block this
-        // build indefinitely. disableConcurrentBuilds() only stops a NEW
-        // build from RUNNING while one is active -- it does not stop new
-        // builds from QUEUEING, so every time Alertmanager re-fired while
-        // this build sat stuck, another build queued up behind it forever
-        // (this is exactly the #9/#10 "Build #8 is already in progress"
-        // pile-up). Capping total runtime guarantees the build always ends,
-        // so the queue drains instead of growing without bound.
         timeout(time: 25, unit: 'MINUTES')
     }
 
@@ -72,7 +119,7 @@ pipeline {
                     echo "--- Pod Status ---"
                     kubectl get pods -n ${NAMESPACE} -o wide
                     echo "--- Dead Nodes ---"
-                    kubectl get nodes | grep -E "NotReady|Unknown" || echo "All nodes show in kubectl — EC2 itself is dead"
+                    kubectl get nodes | grep -E "NotReady|Unknown" || echo "All nodes show in kubectl — EC2 itself may be dead"
                 """
             }
         }
@@ -81,7 +128,7 @@ pipeline {
             steps {
                 timeout(time: 3, unit: 'MINUTES') {
                     dir("${TERRAFORM_DIR}") {
-                        sh "terraform init -reconfigure"
+                        sh "terraform init -reconfigure -input=false"
                     }
                 }
             }
@@ -89,21 +136,14 @@ pipeline {
 
         stage('Terraform Refresh State') {
             steps {
-                timeout(time: 3, unit: 'MINUTES') {
+                timeout(time: 5, unit: 'MINUTES') {
                     dir("${TERRAFORM_DIR}") {
-                        // AWS assigns a NEW public IP to a stopped/started EC2
-                        // instance (no Elastic IP is used in this project).
-                        // stop-all.sh / start-all.sh stop and start instances
-                        // directly via the AWS CLI, bypassing Terraform entirely,
-                        // so Terraform's cached state still holds the OLD public
-                        // IP -- or an empty one if state was read mid-restart --
-                        // until something explicitly re-reads real AWS attributes.
-                        // Every "terraform output" call below depends on this
-                        // running first, or it can silently hand out stale IPs.
-                        // -lock-timeout=2m: fail with a clear "state locked"
-                        // error after 2 minutes instead of hanging indefinitely
-                        // if another terraform process still holds the lock.
-                        sh "terraform apply -refresh-only -auto-approve -lock-timeout=2m"
+                        sh """
+                            timeout -k 30s 4m terraform apply -refresh-only -auto-approve -input=false -lock-timeout=2m \\
+                              -target='aws_instance.k8s_workers[0]' \\
+                              -target='aws_instance.k8s_workers[1]' \\
+                              -target='aws_instance.k8s_workers[2]'
+                        """
                     }
                 }
             }
@@ -113,24 +153,15 @@ pipeline {
             steps {
                 script {
                     dir("${TERRAFORM_DIR}") {
-                        // Public IPs: needed later for SSH / ansible inventory.
-                        def workerIps = getValidWorkerIps()
-                        // Private IPs: index-aligned with workerIps (same
-                        // resource, same ordering). This is what we match
-                        // against kubectl, because kubelet registers its
-                        // PRIVATE ip as INTERNAL-IP -- there is no cloud-
-                        // controller-manager in this project, so EXTERNAL-IP
-                        // is always <none> and public-IP matching (the old
-                        // approach) could never succeed.
-                        def workerPrivateIps = getValidWorkerPrivateIps()
+                        def workerPrivateIps = getWorkerPrivateIpsFromAws()
+                        def workerPublicIps = getWorkerPublicIpsFromAws()
 
                         def deadIndex = -1
                         for (int i = 0; i < workerPrivateIps.size(); i++) {
                             def privateIp = workerPrivateIps[i].trim()
-                            // Exact match on column 6 (INTERNAL-IP), not a
-                            // substring grep across the whole line -- avoids
-                            // false positives and correctly returns empty
-                            // when the node object doesn't exist at all.
+                            def publicIp = workerPublicIps[i]?.trim() ?: 'n/a'
+                            def ec2State = workerEc2State(i)
+
                             def nodeStatus = sh(
                                 script: """
                                     export KUBECONFIG=${KUBECONFIG_PATH}
@@ -142,11 +173,11 @@ pipeline {
                                 nodeStatus = "NotFound"
                             }
 
-                            echo "Worker index ${i} (private IP ${privateIp}, public IP ${workerIps[i].trim()}) -> ${nodeStatus}"
+                            echo "Worker index ${i} (private IP ${privateIp}, public IP ${publicIp}, EC2 ${ec2State}) -> kubectl ${nodeStatus}"
 
-                            if (nodeStatus == "NotReady" || nodeStatus == "NotFound") {
+                            if (nodeStatus == "NotReady" || nodeStatus == "NotFound" || ec2State != "running") {
                                 deadIndex = i
-                                echo "Dead worker found at index ${i}"
+                                echo "Dead worker found at index ${i} (kubectl=${nodeStatus}, ec2=${ec2State})"
                                 if (nodeStatus == "NotReady") {
                                     def deadNodeName = sh(
                                         script: """
@@ -167,11 +198,8 @@ pipeline {
                             }
                         }
 
-                        // Fail loud instead of silently guessing a worker
-                        // index. Destroying a healthy node because detection
-                        // failed is worse than stopping the pipeline.
                         if (deadIndex == -1) {
-                            error("Could not identify a dead/missing worker -- all 3 workers show Ready in kubectl. Aborting to avoid destroying a healthy node.")
+                            error("Could not identify a dead/missing worker -- all 3 workers show Ready in kubectl and running in EC2. Aborting to avoid destroying a healthy node.")
                         }
 
                         env.DEAD_WORKER_INDEX = "${deadIndex}"
@@ -183,20 +211,12 @@ pipeline {
 
         stage('Terraform Destroy Dead Node') {
             steps {
-                // This is the stage that was hanging indefinitely (seen stuck
-                // at 8m46s+ with no end in sight). A real terraform destroy
-                // of a single EC2 instance normally takes well under a
-                // minute. If it hangs this long, either the state is locked
-                // by a leftover process, or the AWS API call itself is
-                // stuck -- either way, waiting forever is what caused builds
-                // to pile up in the queue. Bound it and fail loud instead.
-                timeout(time: 5, unit: 'MINUTES') {
+                timeout(time: 7, unit: 'MINUTES') {
                     dir("${TERRAFORM_DIR}") {
                         sh """
-                            terraform destroy \
-                                -target='aws_instance.k8s_workers[${env.DEAD_WORKER_INDEX}]' \
-                                -auto-approve \
-                                -lock-timeout=2m
+                            timeout -k 30s 6m terraform destroy \\
+                                -target='aws_instance.k8s_workers[${env.DEAD_WORKER_INDEX}]' \\
+                                -auto-approve -input=false -lock-timeout=2m -refresh=false
                         """
                     }
                 }
@@ -206,17 +226,12 @@ pipeline {
 
         stage('Terraform Provision New Node') {
             steps {
-                // Target only the destroyed index so a plain apply can never
-                // touch jenkins/master/other workers even if there is drift.
-                // Bounded the same way as the destroy stage above -- an EC2
-                // apply hanging here would cause the exact same build pile-up.
-                timeout(time: 5, unit: 'MINUTES') {
+                timeout(time: 9, unit: 'MINUTES') {
                     dir("${TERRAFORM_DIR}") {
                         sh """
-                            terraform apply \
-                                -target='aws_instance.k8s_workers[${env.DEAD_WORKER_INDEX}]' \
-                                -auto-approve \
-                                -lock-timeout=2m
+                            timeout -k 30s 8m terraform apply \\
+                                -target='aws_instance.k8s_workers[${env.DEAD_WORKER_INDEX}]' \\
+                                -auto-approve -input=false -lock-timeout=2m -refresh=false
                         """
                     }
                 }
@@ -242,37 +257,37 @@ pipeline {
             }
         }
 
-	stage('Update Monitoring Targets') {
-	    steps {
-		dir('terraform') {
-		    script {
-		        def masterIp = sh(script: "terraform output -raw master_public_ip", returnStdout: true).trim()
-                        def workerIps = getValidWorkerIps()
-                    def allTargets = ([masterIp] + workerIps).findAll { it?.trim() }.collect { "          - '${it}:9100'" }.join("\n")
-			writeFile file: '/tmp/prometheus-recovery.yml', text: """global:
-	  scrape_interval: 15s
-	  evaluation_interval: 15s
-	rule_files:
-	  - "alert.rules.yml"
-	alerting:
-	  alertmanagers:
-	    - static_configs:
-	        - targets:
-	            - 'localhost:9093'
-	scrape_configs:
-	  - job_name: 'prometheus'
-	    static_configs:
-	      - targets: ['localhost:9090']
-	  - job_name: 'node-exporter'
-	    static_configs:
-	      - targets:
-	${allTargets}
-	"""
-	            }
-	        }
-	        sh "sudo cp /tmp/prometheus-recovery.yml /etc/prometheus/prometheus.yml && sudo systemctl restart prometheus"
-	    }
-	}
+        stage('Update Monitoring Targets') {
+            steps {
+                dir("${TERRAFORM_DIR}") {
+                    script {
+                        def masterIp = sh(script: "terraform output -raw master_public_ip", returnStdout: true).trim()
+                        def workerIps = getWorkerPublicIpsFromAws()
+                        def allTargets = ([masterIp] + workerIps).findAll { it?.trim() }.collect { "          - '${it}:9100'" }.join("\n")
+                        writeFile file: '/tmp/prometheus-recovery.yml', text: """global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+rule_files:
+  - "alert.rules.yml"
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'localhost:9093'
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets:
+${allTargets}
+"""
+                    }
+                }
+                sh "sudo cp /tmp/prometheus-recovery.yml /etc/prometheus/prometheus.yml && sudo systemctl restart prometheus"
+            }
+        }
 
         stage('Wait for Node Boot') {
             steps {
@@ -331,12 +346,6 @@ ${allWorkerIps[2].trim()} ansible_user=ec2-user ansible_ssh_private_key_file=~/.
 
         stage('Ansible Configure New Node') {
             steps {
-                // CRITICAL: --limit must be the new node's IP only.
-                // "--limit k8s_workers" matches every worker in inventory.ini
-                // (all 3, since the previous stage just rewrote it with all
-                // current IPs) which re-runs yum update + restarts
-                // docker/containerd/kubelet on the two HEALTHY workers too.
-                // That is what was knocking the other workers offline.
                 sh """
                     ansible-playbook \
                         -i ${WORKSPACE}/ansible/inventory.ini \
@@ -390,11 +399,16 @@ ${allWorkerIps[2].trim()} ansible_user=ec2-user ansible_ssh_private_key_file=~/.
             echo "1. SSH key missing on Jenkins EC2"
             echo "2. Terraform state mismatch — run terraform init"
             echo "3. Kubeadm token expired — SSH master and regenerate"
-            echo "4. Stage hit its timeout (terraform destroy/apply took"
-            echo "   longer than 5 minutes) — check for a leftover terraform"
-            echo "   process on the Jenkins EC2 holding a state lock, or an"
-            echo "   AWS API issue (throttling, stuck instance termination)."
+            echo "4. Stage hit its timeout — check for zombie terraform on Jenkins EC2"
             echo "============================================"
+            dir("${TERRAFORM_DIR}") {
+                sh '''
+                    echo "--- Leftover terraform processes ---"
+                    pgrep -af terraform || true
+                    echo "--- Terraform version ---"
+                    terraform version || true
+                '''
+            }
         }
     }
 }

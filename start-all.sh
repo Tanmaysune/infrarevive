@@ -3,6 +3,11 @@
 export AWS_PAGER=""
 > ~/.ssh/known_hosts
 
+# Get instance IDs by tag (must run before any loop over these variables)
+JENKINS_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-jenkins" --query 'Reservations[0].Instances[0].InstanceId' --output text)
+MASTER_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-master" --query 'Reservations[0].Instances[0].InstanceId' --output text)
+WORKER_IDS=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-*" --query 'Reservations[*].Instances[0].InstanceId' --output text)
+
 echo ""
 echo "--- Ensuring all instances are fully stopped before starting ---"
 for id in $JENKINS_ID $MASTER_ID $WORKER_IDS; do
@@ -14,11 +19,6 @@ for id in $JENKINS_ID $MASTER_ID $WORKER_IDS; do
 done
 
 echo "=== STARTING ALL INFRAREVIVE RESOURCES ==="
-
-# Get instance IDs by tag
-JENKINS_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-jenkins" --query 'Reservations[0].Instances[0].InstanceId' --output text)
-MASTER_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-master" --query 'Reservations[0].Instances[0].InstanceId' --output text)
-WORKER_IDS=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-*" --query 'Reservations[*].Instances[0].InstanceId' --output text)
 
 echo "Jenkins  ID : $JENKINS_ID"
 echo "Master   ID : $MASTER_ID"
@@ -40,9 +40,7 @@ echo "All instances are running."
 # just did unless something refreshes state. Doing it here, once instances
 # are confirmed running (so real public IPs actually exist to read), keeps
 # every downstream 'terraform output' call correct.
-(cd ~/project/infrarevive/terraform && \
-    terraform init -reconfigure -input=false > /dev/null && \
-    terraform apply -refresh-only -auto-approve)
+bash ~/project/infrarevive/scripts/terraform-refresh-workers.sh
 
 echo ""
 echo "--- Fetching new IPs ---"

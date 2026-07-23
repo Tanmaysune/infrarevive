@@ -3,17 +3,19 @@ route:
   group_wait: 10s
   group_interval: 1m
   repeat_interval: 2h
-  receiver: 'jenkins-webhook'
+  # Warnings go to dashboard-only sink; do not trigger full EC2 recovery.
+  receiver: 'null'
   routes:
     - match:
+        alertname: NodeDown
         severity: critical
       receiver: 'jenkins-webhook'
-    - match:
-        severity: warning
-      receiver: 'jenkins-webhook'
+      continue: false
 
 receivers:
+  - name: 'null'
+
   - name: 'jenkins-webhook'
     webhook_configs:
       - url: 'http://localhost:8080/generic-webhook-trigger/invoke?token=INFRAREVIVE_RECOVERY_TOKEN'
-        send_resolved: true
+        send_resolved: false

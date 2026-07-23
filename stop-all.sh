@@ -10,8 +10,7 @@ cd ~/project/infrarevive/terraform
 # Jenkins may be stale (AWS assigns a new one on every start unless an
 # Elastic IP is attached). Without this, the SSH call below can silently
 # fail against the wrong/old IP (errors are suppressed with 2>/dev/null).
-terraform init -reconfigure -input=false > /dev/null
-terraform apply -refresh-only -auto-approve
+bash ~/project/infrarevive/scripts/terraform-refresh-workers.sh
 JENKINS_IP=$(terraform output -raw jenkins_public_ip 2>/dev/null)
 JENKINS_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-jenkins" --query 'Reservations[0].Instances[0].InstanceId' --output text)
 MASTER_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-master" --query 'Reservations[0].Instances[0].InstanceId' --output text)

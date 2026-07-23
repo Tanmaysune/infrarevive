@@ -25,9 +25,8 @@ else
     # start-all.sh/stop-all.sh do that via the AWS CLI directly, bypassing
     # Terraform. Without this, "terraform output" below can return a stale
     # or empty IP.
+    bash ~/project/infrarevive/scripts/terraform-refresh-workers.sh
     cd terraform
-    terraform init -reconfigure -input=false > /dev/null
-    terraform apply -refresh-only -auto-approve
     JENKINS_IP=$(terraform output -raw jenkins_public_ip 2>/dev/null)
     MASTER_IP=$(terraform output -raw master_public_ip 2>/dev/null)
     WORKER0_IP=$(terraform output -json worker_public_ips 2>/dev/null | jq -r '.[0]')

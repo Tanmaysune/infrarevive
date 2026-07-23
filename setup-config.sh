@@ -7,8 +7,7 @@ cd ~/project/infrarevive
 # directly via the AWS CLI -- Terraform never sees that happen. Without
 # this refresh, "terraform output" below can return the OLD IP, or an
 # empty string if state happened to be read mid-restart.
-(cd terraform && terraform init -reconfigure -input=false > /dev/null && \
-                 terraform apply -refresh-only -auto-approve)
+bash ~/project/infrarevive/scripts/terraform-refresh-workers.sh
 
 # Get IPs from Terraform (state is now guaranteed current)
 JENKINS_IP=$(cd terraform && terraform output -raw jenkins_public_ip)
