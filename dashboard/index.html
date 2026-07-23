@@ -1420,6 +1420,10 @@ let previousPipelineStatus = '';
 let currentView = 'home';
 let currentProject = 'infrarevive-recovery'; // Selected job/project name
 let currentInfraServiceId = 'jenkins'; // Selected infrastructure service ID
+const REQUEST_TIMEOUT_MS = 3500;
+const DASHBOARD_REFRESH_MS = 5000;
+const responseCache = new Map();
+let refreshInProgress = false;
 
 // Registry of live-fetched/mock diagnostic properties
 let liveDiagnosticsData = {
@@ -1571,11 +1575,26 @@ function openConsoleInterface() {
 // DYNAMIC METRICS FETCHERS (REAL-TIME INSTANCE DIAGNOSTICS)
 // ============================================================
 
+async function fetchJson(url, cacheMs = 0) {
+  const cached = responseCache.get(url);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+    const value = await response.json();
+    if (cacheMs > 0) responseCache.set(url, { value, expiresAt: Date.now() + cacheMs });
+    return value;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function fetchJenkinsJobs() {
   try {
-    const res = await fetch(`/api/jenkins/api/json?tree=jobs[name]`);
-    if (!res.ok) return [];
-    const data = await res.json();
+    const data = await fetchJson(`/api/jenkins/api/json?tree=jobs[name]`, 3000);
     return data.jobs || [];
   } catch (e) {
     return [];
@@ -1584,9 +1603,7 @@ async function fetchJenkinsJobs() {
 
 async function fetchJenkinsBuild(jobName) {
   try {
-    const res = await fetch(`/api/jenkins/job/${jobName}/lastBuild/api/json`);
-    if (!res.ok) return null;
-    return await res.json();
+    return await fetchJson(`/api/jenkins/job/${jobName}/lastBuild/api/json`, 1500);
   } catch (e) {
     return null;
   }
@@ -1594,9 +1611,7 @@ async function fetchJenkinsBuild(jobName) {
 
 async function fetchJenkinsBuildStages(jobName, buildNumber) {
   try {
-    const res = await fetch(`/api/jenkins/job/${jobName}/${buildNumber}/wfapi/describe`);
-    if (!res.ok) return null;
-    return await res.json();
+    return await fetchJson(`/api/jenkins/job/${jobName}/${buildNumber}/wfapi/describe`, 1500);
   } catch (e) {
     return null;
   }
@@ -1604,9 +1619,7 @@ async function fetchJenkinsBuildStages(jobName, buildNumber) {
 
 async function fetchPrometheus(query) {
   try {
-    const res = await fetch(`/api/prometheus/api/v1/query?query=${encodeURIComponent(query)}`);
-    if (!res.ok) return [];
-    const data = await res.json();
+    const data = await fetchJson(`/api/prometheus/api/v1/query?query=${encodeURIComponent(query)}`, 2500);
     return (data.data && data.data.result) ? data.data.result : [];
   } catch (e) {
     return [];
@@ -1615,9 +1628,7 @@ async function fetchPrometheus(query) {
 
 async function fetchAlerts() {
   try {
-    const res = await fetch(`/api/prometheus/api/v1/alerts`);
-    if (!res.ok) return [];
-    const data = await res.json();
+    const data = await fetchJson(`/api/prometheus/api/v1/alerts`, 2500);
     return (data.data && data.data.alerts) ? data.data.alerts : [];
   } catch (e) {
     return [];
@@ -1629,11 +1640,11 @@ async function fetchInstanceDiagnostics() {
 
   // 1. Fetch Jenkins Diagnostics (executors, build queue)
   try {
-	const compRes = await fetch(`/api/jenkins/computer/api/json`);
-	const queueRes = await fetch(`/api/jenkins/queue/api/json`);    
-    if (compRes.ok && queueRes.ok) {
-      const compData = await compRes.json();
-      const queueData = await queueRes.json();
+    const [compData, queueData] = await Promise.all([
+      fetchJson(`/api/jenkins/computer/api/json`, 3000),
+      fetchJson(`/api/jenkins/queue/api/json`, 3000)
+    ]);
+    if (compData && queueData) {
       
       const totalExec = compData.computer ? compData.computer.reduce((acc, c) => acc + (c.numExecutors || 0), 0) : 0;
       const offlineExec = compData.computer ? compData.computer.filter(c => c.offline).length : 0;
@@ -1651,14 +1662,13 @@ async function fetchInstanceDiagnostics() {
 
   // 2. Fetch Prometheus Diagnostics (uptime, targets, scraping rules)
   try {
-	const targetsRes = await fetch(`/api/prometheus/api/v1/targets`);
-	const runtimeRes = await fetch(`/api/prometheus/api/v1/status/runtimeinfo`);
-	const rulesRes = await fetch(`/api/prometheus/api/v1/rules`);
+    const [targetsData, runtimeData, rulesData] = await Promise.all([
+      fetchJson(`/api/prometheus/api/v1/targets`, 3000),
+      fetchJson(`/api/prometheus/api/v1/status/runtimeinfo`, 3000),
+      fetchJson(`/api/prometheus/api/v1/rules`, 3000)
+    ]);
     
-    if (targetsRes.ok && runtimeRes.ok && rulesRes.ok) {
-      const targetsData = await targetsRes.json();
-      const runtimeData = await runtimeRes.json();
-      const rulesData = await rulesRes.json();
+    if (targetsData && runtimeData && rulesData) {
       
       const activeTargets = targetsData.data.activeTargets || [];
       const upTargets = activeTargets.filter(t => t.health === 'up').length;
@@ -1690,12 +1700,12 @@ async function fetchInstanceDiagnostics() {
   // browser silently blocked it and diagnostics never updated. Routing
   // through the nginx /api/alertmanager/ proxy makes it same-origin.
   try {
-    const statusRes = await fetch(`/api/alertmanager/api/v2/status`);
-    const silencesRes = await fetch(`/api/alertmanager/api/v2/silences`);
+    const [statusData, silencesData] = await Promise.all([
+      fetchJson(`/api/alertmanager/api/v2/status`, 3000),
+      fetchJson(`/api/alertmanager/api/v2/silences`, 3000)
+    ]);
     
-    if (statusRes.ok && silencesRes.ok) {
-      const statusData = await statusRes.json();
-      const silencesData = await silencesRes.json();
+    if (statusData && silencesData) {
       
       const activeSilences = silencesData.filter(s => s.status.state === 'active').length;
       const version = statusData.versionInfo ? statusData.versionInfo.version : 'v0.26.0';
@@ -1769,8 +1779,10 @@ async function refreshInfraServers() {
       const upRes = await fetchPrometheus('up{job="node-exporter"}');
       if (upRes.length > 0) {
         prometheusOnline = true;
-        const cpuRes = await fetchPrometheus('100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100)');
-        const memRes = await fetchPrometheus('(1 - node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes) * 100');
+        const [cpuRes, memRes] = await Promise.all([
+          fetchPrometheus('100 - (avg(rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100)'),
+          fetchPrometheus('(1 - node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes) * 100')
+        ]);
         
         if (cpuRes.length > 0) realCpu = parseFloat(cpuRes[0].value[1]);
         if (memRes.length > 0) realMem = parseFloat(memRes[0].value[1]);
@@ -2158,9 +2170,11 @@ async function updateNodes() {
     return;
   }
 
-  const upResults    = await fetchPrometheus('up{job="node-exporter"}');
-  const cpuResults   = await fetchPrometheus('100 - (avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100)');
-  const memResults   = await fetchPrometheus('(1 - node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes) * 100');
+  const [upResults, cpuResults, memResults] = await Promise.all([
+    fetchPrometheus('up{job="node-exporter"}'),
+    fetchPrometheus('100 - (avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100)'),
+    fetchPrometheus('(1 - node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes) * 100')
+  ]);
 
   const cpuMap = {};
   cpuResults.forEach(r => { cpuMap[r.metric.instance] = parseFloat(r.value[1]).toFixed(1); });
@@ -2446,10 +2460,12 @@ async function updateMetrics() {
     return;
   }
 
-  const totalNodes = await fetchPrometheus('count(up{job="node-exporter"})');
-  const upNodes    = await fetchPrometheus('count(up{job="node-exporter"} == 1)');
-  const avgCpu     = await fetchPrometheus('avg(100 - (avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100))');
-  const avgMem     = await fetchPrometheus('avg((1 - node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes) * 100)');
+  const [totalNodes, upNodes, avgCpu, avgMem] = await Promise.all([
+    fetchPrometheus('count(up{job="node-exporter"})'),
+    fetchPrometheus('count(up{job="node-exporter"} == 1)'),
+    fetchPrometheus('avg(100 - (avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[2m])) * 100))'),
+    fetchPrometheus('avg((1 - node_memory_MemAvailable_bytes/node_memory_MemTotal_bytes) * 100)')
+  ]);
 
   const total = totalNodes[0]?.value[1] || '--';
   const up    = upNodes[0]?.value[1] || '0';
@@ -2503,29 +2519,28 @@ spinStyle.innerHTML = '@keyframes spin { 0% { transform: rotate(0deg); } 100% { 
 document.head.appendChild(spinStyle);
 
 async function refreshAll() {
-  // 1. Fetch alerts and pipelines first to calculate overall health
-  await Promise.all([updateAlerts(), updatePipeline()]);
-
-  // 2. Discover and render active dynamic projects on the homepage
-  await discoverAndRenderProjects();
-
-  // 3. Monitor infrastructure server health parameters
-  await refreshInfraServers();
-
-  // 4. Update cross-project notifications and detail panels
-  evaluateSystemAlertBanner();
-  
-  if (currentView === 'details') {
-    await Promise.all([updateNodes(), updateMetrics()]);
+  if (refreshInProgress) return;
+  refreshInProgress = true;
+  try {
+    await Promise.all([
+      updateAlerts(),
+      updatePipeline(),
+      discoverAndRenderProjects(),
+      refreshInfraServers(),
+      currentView === 'details' ? updateNodes() : Promise.resolve(),
+      currentView === 'details' ? updateMetrics() : Promise.resolve()
+    ]);
+    evaluateSystemAlertBanner();
+    document.getElementById('last-update').textContent =
+      'Last updated: ' + new Date().toLocaleTimeString();
+  } finally {
+    refreshInProgress = false;
   }
-
-  document.getElementById('last-update').textContent =
-    'Last updated: ' + new Date().toLocaleTimeString();
 }
 
 // Initial engine activation loops
 refreshAll();
-setInterval(refreshAll, 15000);
+setInterval(refreshAll, DASHBOARD_REFRESH_MS);
 </script>
 </body>
 </html>

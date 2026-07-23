@@ -80,11 +80,12 @@ spec:
               cpu: "200m"
 ---
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
   name: mysql
   namespace: infrarevive
 spec:
+  serviceName: mysql-headless
   replicas: 1
   selector:
     matchLabels:
@@ -120,7 +121,12 @@ spec:
             limits:
               memory: "512Mi"
               cpu: "500m"
-      volumes:
-        - name: mysql-storage
-          persistentVolumeClaim:
-            claimName: mysql-pvc
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-storage
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: infrarevive-ebs-gp3
+        resources:
+          requests:
+            storage: 10Gi

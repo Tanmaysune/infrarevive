@@ -4,14 +4,9 @@
   become: yes
   vars:
     k8s_version: "1.29"
+    join_command_file: /tmp/kubeadm_join_command.sh
 
   tasks:
-
-    - name: Update system packages
-      yum:
-        name: '*'
-        state: latest
-        update_cache: yes
 
     - name: Install iproute-tc
       yum:
@@ -49,13 +44,6 @@
       debug:
         msg: "bridge-nf-call-iptables = {{ sysctl_check.stdout }}"
 
-    - name: Install Docker
-      shell: |
-        yum install -y docker
-        systemctl start docker
-        systemctl enable docker
-        usermod -aG docker ec2-user
-
     - name: Install Kubernetes repo
       copy:
         dest: /etc/yum.repos.d/kubernetes.repo
@@ -76,12 +64,6 @@
         state: present
         disable_excludes: kubernetes
 
-    - name: Enable and start kubelet
-      service:
-        name: kubelet
-        state: started
-        enabled: yes
-
     - name: Configure containerd
       shell: |
         yum install -y containerd
@@ -91,15 +73,18 @@
         systemctl restart containerd
         systemctl enable containerd
 
-    - name: Copy join command from master
+    - name: Enable kubelet after containerd is configured
+      service:
+        name: kubelet
+        state: started
+        enabled: yes
+
+    - name: Copy fresh join command from the controller
       copy:
-        src: /tmp/kubeadm_join_command.sh
+        src: "{{ join_command_file }}"
         dest: /tmp/kubeadm_join_command.sh
         mode: '0755'
-
-    - name: Add ignore-preflight-errors to join command
-      shell: |
-        sed -i 's/kubeadm join/kubeadm join --ignore-preflight-errors=all/' /tmp/kubeadm_join_command.sh
+      no_log: true
 
     - name: Join worker to Kubernetes cluster
       shell: bash /tmp/kubeadm_join_command.sh
@@ -135,12 +120,6 @@
         systemctl daemon-reload
         systemctl start node_exporter
         systemctl enable node_exporter
-
-    - name: Ensure Docker running on worker
-      service:
-        name: docker
-        state: started
-        enabled: yes
 
     - name: Ensure kubelet running on worker
       service:

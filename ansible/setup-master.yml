@@ -7,12 +7,6 @@
 
   tasks:
 
-    - name: Update system packages
-      yum:
-        name: '*'
-        state: latest
-        update_cache: yes
-
     - name: Disable swap permanently
       shell: |
         swapoff -a
@@ -31,13 +25,6 @@
           net.bridge.bridge-nf-call-ip6tables = 1
           net.ipv4.ip_forward = 1
       notify: Apply sysctl
-
-    - name: Install Docker
-      shell: |
-        yum install -y docker
-        systemctl start docker
-        systemctl enable docker
-        usermod -aG docker ec2-user
 
     - name: Install Kubernetes repo
       copy:
@@ -59,12 +46,6 @@
         state: present
         disable_excludes: kubernetes
 
-    - name: Enable and start kubelet
-      service:
-        name: kubelet
-        state: started
-        enabled: yes
-
     - name: Configure containerd
       shell: |
         yum install -y containerd
@@ -73,6 +54,12 @@
         sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
         systemctl restart containerd
         systemctl enable containerd
+
+    - name: Enable kubelet after containerd is configured
+      service:
+        name: kubelet
+        state: started
+        enabled: yes
 
     - name: Initialize Kubernetes master
       shell: kubeadm init --pod-network-cidr=10.244.0.0/16 --ignore-preflight-errors=all
@@ -89,6 +76,14 @@
     - name: Install Flannel CNI
       become_user: ec2-user
       shell: kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
+      environment:
+        KUBECONFIG: /home/ec2-user/.kube/config
+
+    - name: Install AWS EBS CSI driver
+      become_user: ec2-user
+      shell: >-
+        kubectl apply -k
+        github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/ecr/?ref=v1.37.0
       environment:
         KUBECONFIG: /home/ec2-user/.kube/config
 

@@ -1,5 +1,10 @@
 pipeline {
     agent any
+    options {
+        disableConcurrentBuilds()
+        timeout(time: 20, unit: 'MINUTES')
+        timestamps()
+    }
     environment {
         DOCKERHUB_USERNAME = 'sune21tanmay'
         IMAGE_API          = "${DOCKERHUB_USERNAME}/infrarevive-api"
@@ -29,7 +34,7 @@ pipeline {
                     usernameVariable: 'DOCKER_USER',
                     passwordVariable: 'DOCKER_PASS'
                 )]) {
-                    sh "echo ${DOCKER_PASS} | docker login -u ${DOCKER_USER} --password-stdin"
+                    sh 'printf %s "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
                     sh "docker push ${IMAGE_API}:${TAG}"
                     sh "docker push ${IMAGE_API}:latest"
                     sh "docker push ${IMAGE_FRONT}:${TAG}"

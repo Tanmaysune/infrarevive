@@ -1,11 +1,11 @@
 groups:
   - name: node_alerts
-    interval: 15s
+    interval: 5s
     rules:
 
       - alert: NodeDown
         expr: up{job="node-exporter"} == 0
-        for: 30s
+        for: 15s
         labels:
           severity: critical
         annotations:

@@ -94,8 +94,8 @@ echo ""
 echo "--- Updating prometheus.yml ---"
 cat > ~/project/infrarevive/prometheus/prometheus.yml << PROM
 global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
+  scrape_interval: 5s
+  evaluation_interval: 5s
 rule_files:
   - "alert.rules.yml"
 alerting:
@@ -108,16 +108,19 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
   - job_name: 'node-exporter'
-    static_configs:
-      - targets:
-          - '$MASTER_IP:9100'
-          - '$WORKER0_IP:9100'
-          - '$WORKER1_IP:9100'
-          - '$WORKER2_IP:9100'
-  - job_name: 'flask-api'
-    metrics_path: '/health'
-    static_configs:
-      - targets: ['$WORKER0_IP:30500']
+    ec2_sd_configs:
+      - region: us-east-1
+        port: 9100
+        refresh_interval: 10s
+        filters:
+          - name: tag:Project
+            values: ['infrarevive']
+          - name: tag:Role
+            values: ['master', 'worker']
+    relabel_configs:
+      - source_labels: [__meta_ec2_public_ip]
+        target_label: __address__
+        replacement: '\$1:9100'
 PROM
 echo "prometheus.yml updated."
 
@@ -350,4 +353,3 @@ echo "DASHBOARD  : http://$JENKINS_IP/infrarevive/"
 echo "================================================"
 echo "Open the dashboard link above in any browser."
 echo "Works from any device on any network."
-
