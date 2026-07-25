@@ -1,0 +1,12 @@
+# ConfigMap — non-sensitive application configuration
+# Keeps environment variables out of the deployment manifest for
+# easier management and environment portability.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: infrarevive-config
+  namespace: infrarevive
+data:
+  DB_HOST: "mysql-service"
+  DB_USER: "root"
+  MYSQL_DATABASE: "results"

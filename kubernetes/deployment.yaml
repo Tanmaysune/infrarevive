@@ -23,13 +23,11 @@ spec:
           image: sune21tanmay/infrarevive-api:latest
           ports:
             - containerPort: 5000
-          env:
-            - name: DB_HOST
-              value: "mysql-service"
-            - name: DB_USER
-              value: "root"
-            - name: DB_PASS
-              value: "rootpassword"
+          envFrom:
+            - configMapRef:
+                name: infrarevive-config
+            - secretRef:
+                name: infrarevive-secrets
           livenessProbe:
             httpGet:
               path: /health
@@ -94,25 +92,45 @@ spec:
       labels:
         app: mysql
     spec:
+      # Pin MySQL to master node so data survives worker-node recovery.
+      # The master is never destroyed by the recovery pipeline.
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+      tolerations:
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: "Exists"
+          effect: "NoSchedule"
       containers:
         - name: mysql
           image: mysql:8.0
           ports:
             - containerPort: 3306
-          env:
-            - name: MYSQL_ROOT_PASSWORD
-              value: "rootpassword"
-            - name: MYSQL_DATABASE
-              value: "results"
+          envFrom:
+            - configMapRef:
+                name: infrarevive-config
+            - secretRef:
+                name: infrarevive-secrets
           volumeMounts:
             - name: mysql-storage
               mountPath: /var/lib/mysql
           livenessProbe:
             exec:
-              command: ["mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+              command:
+                - /bin/sh
+                - -c
+                - mysqladmin ping -h localhost -u root -p"$MYSQL_ROOT_PASSWORD"
             initialDelaySeconds: 30
             periodSeconds: 10
             failureThreshold: 5
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - mysqladmin ping -h localhost -u root -p"$MYSQL_ROOT_PASSWORD"
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 3
           resources:
             requests:
               memory: "256Mi"

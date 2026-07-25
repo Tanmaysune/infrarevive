@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eu
 
 echo "=== STOPPING ALL INFRAREVIVE RESOURCES ==="
 
@@ -22,9 +23,11 @@ echo "--- Stopping services on Jenkins EC2 ---"
 ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no \
     -o ConnectTimeout=10 \
     ec2-user@$JENKINS_IP \
-    "pkill prometheus || true; \
-     pkill alertmanager || true; \
-     echo 'Prometheus and Alertmanager stopped'" 2>/dev/null
+    "sudo systemctl stop dashboard-api 2>/dev/null || true; \
+     sudo systemctl stop prometheus 2>/dev/null || true; \
+     sudo systemctl stop alertmanager 2>/dev/null || true; \
+     sudo systemctl stop nginx 2>/dev/null || true; \
+     echo 'Prometheus, Alertmanager, NGINX and Dashboard API stopped'" 2>/dev/null || true
 
 echo "Services stopped."
 

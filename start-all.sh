@@ -1,8 +1,16 @@
 #!/bin/bash
+set -eu
 
 export AWS_PAGER=""
-> ~/.ssh/known_hosts
 
+echo "=== STARTING ALL INFRAREVIVE RESOURCES ==="
+
+# Get instance IDs by tag
+JENKINS_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-jenkins" --query 'Reservations[0].Instances[0].InstanceId' --output text)
+MASTER_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-master" --query 'Reservations[0].Instances[0].InstanceId' --output text)
+WORKER_IDS=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-*" --query 'Reservations[*].Instances[0].InstanceId' --output text)
+
+# Ensure all instances are fully stopped before starting
 echo ""
 echo "--- Ensuring all instances are fully stopped before starting ---"
 for id in $JENKINS_ID $MASTER_ID $WORKER_IDS; do
@@ -12,13 +20,6 @@ for id in $JENKINS_ID $MASTER_ID $WORKER_IDS; do
     aws ec2 wait instance-stopped --instance-ids $id
   fi
 done
-
-echo "=== STARTING ALL INFRAREVIVE RESOURCES ==="
-
-# Get instance IDs by tag
-JENKINS_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-jenkins" --query 'Reservations[0].Instances[0].InstanceId' --output text)
-MASTER_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-master" --query 'Reservations[0].Instances[0].InstanceId' --output text)
-WORKER_IDS=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-*" --query 'Reservations[*].Instances[0].InstanceId' --output text)
 
 echo "Jenkins  ID : $JENKINS_ID"
 echo "Master   ID : $MASTER_ID"
@@ -104,7 +105,7 @@ scrape_configs:
           - '$WORKER1_IP:9100'
           - '$WORKER2_IP:9100'
   - job_name: 'flask-api'
-    metrics_path: '/health'
+    metrics_path: '/metrics'
     static_configs:
       - targets: ['$WORKER0_IP:30500']
 PROM
@@ -204,7 +205,7 @@ echo "Jenkins kubeconfig synced."
 echo ""
 echo ""
 echo "--- Cleaning up ghost/stale nodes ---"
-kubectl get nodes --no-headers 2>/dev/null | awk '$2=="NotReady"{print $1}' | xargs -r -I{} kubectl delete node {}
+kubectl get nodes --no-headers 2>/dev/null | awk '$2=="NotReady"{print $1}' | xargs -r -I{} kubectl delete node {} || true
 
 echo "--- Ensuring flannel CNI is healthy ---"
 
@@ -251,6 +252,13 @@ scp -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no \
     ec2-user@$JENKINS_IP:/tmp/prometheus.yml
 ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no ec2-user@$JENKINS_IP \
     "sudo cp /tmp/prometheus.yml /etc/prometheus/prometheus.yml"
+
+# Deploy alertmanager.yml (has webhook URL for Jenkins recovery trigger)
+scp -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no \
+    ~/project/infrarevive/prometheus/alertmanager.yml \
+    ec2-user@$JENKINS_IP:/tmp/alertmanager.yml
+ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no ec2-user@$JENKINS_IP \
+    "sudo cp /tmp/alertmanager.yml /etc/prometheus/alertmanager.yml"
 
 ssh -i ~/.ssh/infrarevive-key.pem \
     -o StrictHostKeyChecking=no \
@@ -303,17 +311,52 @@ ssh -i ~/.ssh/infrarevive-key.pem \
 
 echo "Dashboard + nginx reverse proxy deployed successfully."
 
+# -------------------------------------------------------
+# DEPLOY DASHBOARD-API BACKEND (Flask on port 5001)
+# Provides real AWS EC2 + Kubernetes node/pod/event data
+# to the browser dashboard via the /api/dashboard/ nginx proxy.
+# -------------------------------------------------------
 echo ""
-echo "--- Injecting API URL into frontend ---"
-kubectl exec -n infrarevive deploy/frontend -- sh -c \
-  "sed -i \"s|http://localhost:5000|http://$WORKER0_IP:30500|g; s|window.FLASK_API_URL || 'http://$WORKER0_IP:30500'|\" /usr/share/nginx/html/index.html" 2>/dev/null || true
+echo "--- Deploying Dashboard API backend (port 5001) ---"
+
+# Ensure ec2-user has a readable kubeconfig for kubectl calls
+ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no ec2-user@$JENKINS_IP \
+    "mkdir -p /home/ec2-user/.kube && \
+     sudo cp /var/lib/jenkins/.kube/config /home/ec2-user/.kube/config && \
+     sudo chown ec2-user:ec2-user /home/ec2-user/.kube/config && \
+     sudo chmod 600 /home/ec2-user/.kube/config"
+
+# Copy dashboard-api source files to Jenkins EC2
+ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no ec2-user@$JENKINS_IP \
+    "sudo mkdir -p /opt/infrarevive/dashboard-api && sudo chown -R ec2-user:ec2-user /opt/infrarevive"
+
+scp -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no \
+    ~/project/infrarevive/dashboard-api/app.py \
+    ~/project/infrarevive/dashboard-api/requirements.txt \
+    ~/project/infrarevive/dashboard-api/dashboard-api.service \
+    ec2-user@$JENKINS_IP:/tmp/
+
+# Install dependencies, deploy service, and start
+ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no ec2-user@$JENKINS_IP \
+    "sudo cp /tmp/app.py /opt/infrarevive/dashboard-api/ && \
+     sudo cp /tmp/requirements.txt /opt/infrarevive/dashboard-api/ && \
+     sudo chown -R ec2-user:ec2-user /opt/infrarevive && \
+     sudo pip3 install -q flask flask-cors 2>/dev/null || \
+       (sudo yum install -y python3-pip > /dev/null 2>&1 && sudo pip3 install -q flask flask-cors) || true && \
+     sudo cp /tmp/dashboard-api.service /etc/systemd/system/dashboard-api.service && \
+     sudo systemctl daemon-reload && \
+     sudo systemctl enable dashboard-api > /dev/null 2>&1 && \
+     sudo systemctl restart dashboard-api && \
+     echo 'Dashboard API deployed and started on port 5001'"
+
+echo "Dashboard API backend deployed."
 
 # -------------------------------------------------------
 # CLEAN UP STALE Unknown PODS (left over from node restart)
 # -------------------------------------------------------
 echo ""
 echo "--- Cleaning up stale Unknown pods ---"
-kubectl get pods -n infrarevive --no-headers 2>/dev/null | awk '$3=="Unknown"{print $1}' | xargs -r kubectl delete pod -n infrarevive --force --grace-period=0
+kubectl get pods -n infrarevive --no-headers 2>/dev/null | awk '$3=="Unknown"{print $1}' | xargs -r kubectl delete pod -n infrarevive --force --grace-period=0 || true
 
 echo ""
 echo "--- Waiting for app pods to become Ready ---"
@@ -322,9 +365,9 @@ kubectl wait --for=condition=Ready pod -n infrarevive --all --timeout=180s || tr
 # Final status
 echo ""
 echo "--- Cluster Status ---"
-kubectl get nodes
-kubectl get pods -n kube-flannel
-kubectl get pods -n infrarevive
+kubectl get nodes || true
+kubectl get pods -n kube-flannel || true
+kubectl get pods -n infrarevive || true
 
 echo ""
 echo "=== EVERYTHING IS BACK UP ==="

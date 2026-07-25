@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eu
 # =============================================================================
 # InfraRevive — deploy-dashboard.sh
 # Standalone dashboard deploy script — run this when you only need to
@@ -67,6 +68,41 @@ ssh -o StrictHostKeyChecking=no \
      sudo cp /tmp/nginx.conf /etc/nginx/nginx.conf && \
      sudo nginx -t && \
      sudo systemctl reload nginx'
+
+# -------------------------------------------------------
+# Also redeploy the Dashboard API backend (Flask port 5001)
+# -------------------------------------------------------
+echo -e "${YELLOW}Deploying Dashboard API backend...${NC}"
+
+ssh -o StrictHostKeyChecking=no \
+    -i ~/.ssh/infrarevive-key.pem \
+    ec2-user@${JENKINS_IP} \
+    "mkdir -p /home/ec2-user/.kube && \
+     sudo cp /var/lib/jenkins/.kube/config /home/ec2-user/.kube/config && \
+     sudo chown ec2-user:ec2-user /home/ec2-user/.kube/config && \
+     sudo chmod 600 /home/ec2-user/.kube/config && \
+     sudo mkdir -p /opt/infrarevive/dashboard-api && \
+     sudo chown -R ec2-user:ec2-user /opt/infrarevive"
+
+scp -o StrictHostKeyChecking=no \
+    -i ~/.ssh/infrarevive-key.pem \
+    dashboard-api/app.py \
+    dashboard-api/requirements.txt \
+    dashboard-api/dashboard-api.service \
+    ec2-user@${JENKINS_IP}:/tmp/
+
+ssh -o StrictHostKeyChecking=no \
+    -i ~/.ssh/infrarevive-key.pem \
+    ec2-user@${JENKINS_IP} \
+    'sudo cp /tmp/app.py /opt/infrarevive/dashboard-api/ && \
+     sudo cp /tmp/requirements.txt /opt/infrarevive/dashboard-api/ && \
+     sudo chown -R ec2-user:ec2-user /opt/infrarevive && \
+     sudo pip3 install -q flask flask-cors 2>/dev/null || true && \
+     sudo cp /tmp/dashboard-api.service /etc/systemd/system/dashboard-api.service && \
+     sudo systemctl daemon-reload && \
+     sudo systemctl restart dashboard-api'
+
+echo -e "${GREEN}Dashboard API backend deployed.${NC}"
 
 echo ""
 echo -e "${GREEN}Dashboard deployed successfully.${NC}"

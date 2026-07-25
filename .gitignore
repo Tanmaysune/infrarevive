@@ -1,0 +1,21 @@
+# Environment & secrets
+.env
+
+# Terraform
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/*.tfplan
+
+# AWS CLI bundle (vendored binary, ~40MB)
+awscliv2.zip
+aws/dist/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db

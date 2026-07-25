@@ -15,7 +15,7 @@ def get_db():
             return mysql.connector.connect(
                 host=os.environ.get("DB_HOST", "mysql-service"),
                 user=os.environ.get("DB_USER", "root"),
-                password=os.environ.get("DB_PASS", "rootpassword"),
+                password=os.environ.get("DB_PASS", ""),
                 database="results"
             )
         except mysql.connector.Error:
@@ -41,6 +41,11 @@ def get_result(name):
 @app.route('/health')
 def health():
     return jsonify({"status": "ok"}), 200
+
+@app.route('/metrics')
+def metrics():
+    """Prometheus scrape endpoint."""
+    return "flask_api_up 1\n", 200, {'Content-Type': 'text/plain; charset=utf-8'}
 
 @app.route('/init-db')
 def init_db():

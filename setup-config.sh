@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eu
 cd ~/project/infrarevive
 
 # Get IPs from Terraform
@@ -66,7 +67,7 @@ scrape_configs:
           - '${WORKER2_IP}:9100'
 
   - job_name: 'flask-api'
-    metrics_path: '/health'
+    metrics_path: '/metrics'
     static_configs:
       - targets: ['${WORKER0_IP}:30500']
 EOF
@@ -133,6 +134,54 @@ ssh -i ~/.ssh/infrarevive-key.pem \
      sudo nginx -t && \
      sudo systemctl reload nginx && \
      echo 'Dashboard + nginx reverse proxy live'"
+
+# -------------------------------------------------------
+# DEPLOY DASHBOARD-API BACKEND (Flask on port 5001)
+# -------------------------------------------------------
+echo ""
+echo "--- Deploying Dashboard API backend (port 5001) ---"
+
+# Ensure ec2-user has a readable kubeconfig for kubectl calls
+ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no ec2-user@$JENKINS_IP \
+    "mkdir -p /home/ec2-user/.kube && \
+     sudo cp /var/lib/jenkins/.kube/config /home/ec2-user/.kube/config && \
+     sudo chown ec2-user:ec2-user /home/ec2-user/.kube/config && \
+     sudo chmod 600 /home/ec2-user/.kube/config"
+
+ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no ec2-user@$JENKINS_IP \
+    "sudo mkdir -p /opt/infrarevive/dashboard-api && sudo chown -R ec2-user:ec2-user /opt/infrarevive"
+
+scp -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no \
+    dashboard-api/app.py \
+    dashboard-api/requirements.txt \
+    dashboard-api/dashboard-api.service \
+    ec2-user@$JENKINS_IP:/tmp/
+
+ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no ec2-user@$JENKINS_IP \
+    "sudo cp /tmp/app.py /opt/infrarevive/dashboard-api/ && \
+     sudo cp /tmp/requirements.txt /opt/infrarevive/dashboard-api/ && \
+     sudo chown -R ec2-user:ec2-user /opt/infrarevive && \
+     sudo pip3 install -q flask flask-cors 2>/dev/null || \
+       (sudo yum install -y python3-pip > /dev/null 2>&1 && sudo pip3 install -q flask flask-cors) || true && \
+     sudo cp /tmp/dashboard-api.service /etc/systemd/system/dashboard-api.service && \
+     sudo systemctl daemon-reload && \
+     sudo systemctl enable dashboard-api > /dev/null 2>&1 && \
+     sudo systemctl restart dashboard-api && \
+     echo 'Dashboard API deployed and started on port 5001'"
+
+echo "Dashboard API backend deployed."
+
+# -------------------------------------------------------
+# DEPLOY ALERTMANAGER CONFIG TO JENKINS EC2
+# -------------------------------------------------------
+echo ""
+echo "--- Deploying Alertmanager config ---"
+scp -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no \
+    prometheus/alertmanager.yml \
+    ec2-user@$JENKINS_IP:/tmp/alertmanager.yml
+ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no ec2-user@$JENKINS_IP \
+    "sudo cp /tmp/alertmanager.yml /etc/prometheus/alertmanager.yml"
+echo "Alertmanager config deployed."
 
 echo ""
 echo "=== Setup Complete ==="

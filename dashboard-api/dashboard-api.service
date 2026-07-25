@@ -1,0 +1,15 @@
+[Unit]
+Description=InfraRevive Dashboard API
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/opt/infrarevive/dashboard-api
+Environment=KUBECONFIG=/home/ec2-user/.kube/config
+ExecStart=/usr/bin/python3 /opt/infrarevive/dashboard-api/app.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

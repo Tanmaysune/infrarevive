@@ -11,14 +11,6 @@ spec:
   persistentVolumeReclaimPolicy: Retain
   hostPath:
     path: "/mnt/data/mysql"
-  nodeAffinity:
-    required:
-      nodeSelectorTerms:
-        - matchExpressions:
-            - key: kubernetes.io/hostname
-              operator: In
-              values:
-                - ip-172-20-5-149.ec2.internal   # the name you just noted
 
 ---
 apiVersion: v1

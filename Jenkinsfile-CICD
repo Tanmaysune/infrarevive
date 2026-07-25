@@ -41,6 +41,15 @@ pipeline {
             steps {
                 sh """
                     export KUBECONFIG=${KUBECONFIG_PATH}
+                    # Apply all manifests (idempotent — safe to re-run)
+                    kubectl apply -f kubernetes/namespace.yaml
+                    kubectl apply -f kubernetes/configmap.yaml
+                    kubectl apply -f kubernetes/secret.yaml
+                    kubectl apply -f kubernetes/persistent-volume.yaml
+                    kubectl apply -f kubernetes/deployment.yaml
+                    kubectl apply -f kubernetes/service.yaml
+                    kubectl apply -f kubernetes/ingress.yaml
+                    # Rolling update with new image tags
                     kubectl set image deployment/flask-api \
                         flask-api=${IMAGE_API}:${TAG} \
                         -n ${NAMESPACE}
