@@ -1,5 +1,5 @@
 route:
-  group_by: ['alertname', 'instance']
+  group_by: ['instance']
   group_wait: 10s
   group_interval: 15m
   repeat_interval: 2h
@@ -17,4 +17,3 @@ receivers:
     webhook_configs:
       - url: 'http://localhost:8080/generic-webhook-trigger/invoke?token=INFRAREVIVE_RECOVERY_TOKEN'
         send_resolved: false
-

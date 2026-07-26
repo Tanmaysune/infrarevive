@@ -6,9 +6,9 @@ export AWS_PAGER=""
 echo "=== STARTING ALL INFRAREVIVE RESOURCES ==="
 
 # Get instance IDs by tag
-JENKINS_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-jenkins" --query 'Reservations[0].Instances[0].InstanceId' --output text)
-MASTER_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-master" --query 'Reservations[0].Instances[0].InstanceId' --output text)
-WORKER_IDS=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-*" --query 'Reservations[*].Instances[0].InstanceId' --output text)
+JENKINS_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-jenkins" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].InstanceId' --output text)
+MASTER_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-master" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].InstanceId' --output text)
+WORKER_IDS=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-*" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[*].Instances[0].InstanceId' --output text)
 
 # Ensure all instances are fully stopped before starting
 echo ""
@@ -36,17 +36,17 @@ echo ""
 echo "--- Fetching new IPs ---"
 JENKINS_IP=$(aws ec2 describe-instances --instance-ids $JENKINS_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
 MASTER_IP=$(aws ec2 describe-instances --instance-ids $MASTER_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
-WORKER0_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-0" --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
-WORKER1_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-1" --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
-WORKER2_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-2" --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+WORKER0_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-0" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+WORKER1_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-1" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+WORKER2_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-2" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
 
 if [ "$WORKER0_IP" == "None" ] || [ "$WORKER1_IP" == "None" ] || [ "$WORKER2_IP" == "None" ]; then
   echo ""
   echo "--- Missing worker IP detected, re-applying Terraform ---"
   (cd ~/project/infrarevive/terraform && terraform apply -auto-approve)
-  WORKER0_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-0" --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
-  WORKER1_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-1" --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
-  WORKER2_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-2" --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
+  WORKER0_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-0" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
+  WORKER1_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-1" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
+  WORKER2_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-2" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
   echo "Corrected Worker IPs: $WORKER0_IP $WORKER1_IP $WORKER2_IP"
 fi
 
@@ -60,9 +60,9 @@ echo "Worker 2 : $WORKER2_IP"
 # targets so alerts (and the recovery pipeline) don't silently break
 # every time public IPs change.
 MASTER_PRIVATE_IP=$(aws ec2 describe-instances --instance-ids $MASTER_ID --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
-WORKER0_PRIVATE_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-0" --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
-WORKER1_PRIVATE_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-1" --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
-WORKER2_PRIVATE_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-2" --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
+WORKER0_PRIVATE_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-0" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
+WORKER1_PRIVATE_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-1" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
+WORKER2_PRIVATE_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-2" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
 
 cat > ~/project/infrarevive/.env << EOF
 JENKINS_IP=$JENKINS_IP
@@ -267,6 +267,16 @@ scp -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no \
     ec2-user@$JENKINS_IP:/tmp/alertmanager.yml
 ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no ec2-user@$JENKINS_IP \
     "sudo cp /tmp/alertmanager.yml /etc/prometheus/alertmanager.yml"
+
+# Deploy alert.rules.yml -- prometheus.yml references this via rule_files,
+# but nothing was ever copying the actual file, so Prometheus silently
+# loaded zero alert rules and NodeDown never fired no matter what happened
+# to the workers.
+scp -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no \
+    ~/project/infrarevive/prometheus/alert.rules.yml \
+    ec2-user@$JENKINS_IP:/tmp/alert.rules.yml
+ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no ec2-user@$JENKINS_IP \
+    "sudo cp /tmp/alert.rules.yml /etc/prometheus/alert.rules.yml && sudo chown prometheus:prometheus /etc/prometheus/alert.rules.yml"
 
 ssh -i ~/.ssh/infrarevive-key.pem \
     -o StrictHostKeyChecking=no \
