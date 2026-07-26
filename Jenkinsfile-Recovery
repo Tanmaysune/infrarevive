@@ -40,7 +40,8 @@ pipeline {
     agent any
 
     options {
-        disableConcurrentBuilds()
+        disableConcurrentBuilds(abortPrevious: true)
+        quietPeriod(60)
     }
 
     environment {
@@ -193,43 +194,6 @@ pipeline {
             }
         }
 
-        stage('Update Monitoring Targets') {
-            steps {
-                dir('terraform') {
-                    script {
-                        def masterIp = sh(script: "terraform output -raw master_public_ip", returnStdout: true).trim()
-                        def workerIps = getValidWorkerIps()
-                        def allTargets = ([masterIp] + workerIps).findAll { it?.trim() }.collect { "          - '${it}:9100'" }.join("\n")
-                        def flaskApiTarget = workerIps[0]?.trim() ? "${workerIps[0].trim()}:30500" : ""
-                        writeFile file: '/tmp/prometheus-recovery.yml', text: """global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
-rule_files:
-  - "alert.rules.yml"
-alerting:
-  alertmanagers:
-    - static_configs:
-        - targets:
-            - 'localhost:9093'
-scrape_configs:
-  - job_name: 'prometheus'
-    static_configs:
-      - targets: ['localhost:9090']
-  - job_name: 'node-exporter'
-    static_configs:
-      - targets:
-${allTargets}
-  - job_name: 'flask-api'
-    metrics_path: '/metrics'
-    static_configs:
-      - targets: ['${flaskApiTarget}']
-"""
-                    }
-                }
-                sh "sudo cp /tmp/prometheus-recovery.yml /etc/prometheus/prometheus.yml && sudo systemctl restart prometheus"
-            }
-        }
-
         stage('Wait for Node Boot') {
             steps {
                 echo "Waiting 90 seconds for EC2 to boot..."
@@ -316,6 +280,48 @@ ${workerLines}
             }
         }
 
+        // Runs only after the new node is confirmed Ready -- doing this
+        // earlier (right after provisioning) pointed Prometheus at the new
+        // node's IP before it had node-exporter running, which fired a
+        // fresh NodeDown/InstanceDown alert for that new IP and re-triggered
+        // this whole pipeline mid-run.
+        stage('Update Monitoring Targets') {
+            steps {
+                dir('terraform') {
+                    script {
+                        def masterIp = sh(script: "terraform output -raw master_public_ip", returnStdout: true).trim()
+                        def workerIps = getValidWorkerIps()
+                        def allTargets = ([masterIp] + workerIps).findAll { it?.trim() }.collect { "          - '${it}:9100'" }.join("\n")
+                        def flaskApiTarget = workerIps[0]?.trim() ? "${workerIps[0].trim()}:30500" : ""
+                        writeFile file: '/tmp/prometheus-recovery.yml', text: """global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+rule_files:
+  - "alert.rules.yml"
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'localhost:9093'
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets:
+${allTargets}
+  - job_name: 'flask-api'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['${flaskApiTarget}']
+"""
+                    }
+                }
+                sh "sudo cp /tmp/prometheus-recovery.yml /etc/prometheus/prometheus.yml && sudo systemctl restart prometheus"
+            }
+        }
+
         stage('Verify Pods Rescheduled and App Running') {
             steps {
                 sh """
@@ -349,3 +355,4 @@ ${workerLines}
         }
     }
 }
+

@@ -7,9 +7,9 @@ echo "=== STOPPING ALL INFRAREVIVE RESOURCES ==="
 cd ~/project/infrarevive/terraform
 
 JENKINS_IP=$(terraform output -raw jenkins_public_ip 2>/dev/null)
-JENKINS_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-jenkins" --query 'Reservations[0].Instances[0].InstanceId' --output text)
-MASTER_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-master" --query 'Reservations[0].Instances[0].InstanceId' --output text)
-WORKER_IDS=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-*" --query 'Reservations[*].Instances[0].InstanceId' --output text)
+JENKINS_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-jenkins" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].InstanceId' --output text)
+MASTER_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-master" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].InstanceId' --output text)
+WORKER_IDS=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-*" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[*].Instances[0].InstanceId' --output text)
 
 cd ~/project/infrarevive
 
