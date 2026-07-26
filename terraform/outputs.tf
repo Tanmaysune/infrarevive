@@ -22,3 +22,8 @@ output "worker_instance_ids" {
   value       = aws_instance.k8s_workers[*].id
   description = "Worker node instance IDs"
 }
+
+output "master_private_ip" {
+  value       = aws_instance.k8s_master.private_ip
+  description = "Kubernetes master private IP"
+}

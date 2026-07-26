@@ -9,6 +9,14 @@ WORKER0_IP=$(cd terraform && terraform output -json worker_public_ips | jq -r '.
 WORKER1_IP=$(cd terraform && terraform output -json worker_public_ips | jq -r '.[1]')
 WORKER2_IP=$(cd terraform && terraform output -json worker_public_ips | jq -r '.[2]')
 
+# Private IPs -- stable across stop/start, used for Prometheus scrape targets
+# so alerts (and the recovery pipeline) don't silently break every time
+# public IPs change.
+MASTER_PRIVATE_IP=$(cd terraform && terraform output -raw master_private_ip)
+WORKER0_PRIVATE_IP=$(cd terraform && terraform output -json worker_private_ips | jq -r '.[0]')
+WORKER1_PRIVATE_IP=$(cd terraform && terraform output -json worker_private_ips | jq -r '.[1]')
+WORKER2_PRIVATE_IP=$(cd terraform && terraform output -json worker_private_ips | jq -r '.[2]')
+
 echo "Jenkins  : $JENKINS_IP"
 echo "Master   : $MASTER_IP"
 echo "Worker 0 : $WORKER0_IP"
@@ -61,15 +69,15 @@ scrape_configs:
   - job_name: 'node-exporter'
     static_configs:
       - targets:
-          - '${MASTER_IP}:9100'
-          - '${WORKER0_IP}:9100'
-          - '${WORKER1_IP}:9100'
-          - '${WORKER2_IP}:9100'
+          - '${MASTER_PRIVATE_IP}:9100'
+          - '${WORKER0_PRIVATE_IP}:9100'
+          - '${WORKER1_PRIVATE_IP}:9100'
+          - '${WORKER2_PRIVATE_IP}:9100'
 
   - job_name: 'flask-api'
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['${WORKER0_IP}:30500']
+      - targets: ['${WORKER0_PRIVATE_IP}:30500']
 EOF
 
 # NOTE: alertmanager.yml's webhook already points at http://localhost:8080

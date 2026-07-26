@@ -56,6 +56,14 @@ echo "Worker 0 : $WORKER0_IP"
 echo "Worker 1 : $WORKER1_IP"
 echo "Worker 2 : $WORKER2_IP"
 
+# Private IPs -- stable across stop/start, used for Prometheus scrape
+# targets so alerts (and the recovery pipeline) don't silently break
+# every time public IPs change.
+MASTER_PRIVATE_IP=$(aws ec2 describe-instances --instance-ids $MASTER_ID --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
+WORKER0_PRIVATE_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-0" --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
+WORKER1_PRIVATE_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-1" --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
+WORKER2_PRIVATE_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-2" --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
+
 cat > ~/project/infrarevive/.env << EOF
 JENKINS_IP=$JENKINS_IP
 MASTER_IP=$MASTER_IP
@@ -100,14 +108,14 @@ scrape_configs:
   - job_name: 'node-exporter'
     static_configs:
       - targets:
-          - '$MASTER_IP:9100'
-          - '$WORKER0_IP:9100'
-          - '$WORKER1_IP:9100'
-          - '$WORKER2_IP:9100'
+          - '$MASTER_PRIVATE_IP:9100'
+          - '$WORKER0_PRIVATE_IP:9100'
+          - '$WORKER1_PRIVATE_IP:9100'
+          - '$WORKER2_PRIVATE_IP:9100'
   - job_name: 'flask-api'
     metrics_path: '/metrics'
     static_configs:
-      - targets: ['$WORKER0_IP:30500']
+      - targets: ['$WORKER0_PRIVATE_IP:30500']
 PROM
 echo "prometheus.yml updated."
 
