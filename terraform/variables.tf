@@ -4,8 +4,8 @@ variable "region" {
 }
 
 variable "instance_type_jenkins" {
-  default     = "t3.micro"
-  description = "Jenkins EC2 - free tier - 2 vCPU 1GB RAM"
+  default     = "t3.small"
+  description = "Jenkins EC2 - free tier - 2 vCPU 2GB RAM"
 }
 
 variable "instance_type_master" {
