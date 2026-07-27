@@ -3,13 +3,15 @@ set -eu
 
 echo "=== STOPPING ALL INFRAREVIVE RESOURCES ==="
 
-# Get IPs and IDs from Terraform
+# Get IPs and IDs from Terraform state -- NOT AWS tag lookups, which can
+# match stale/duplicate instances sharing the same Name tag after a
+# destroy+recreate cycle (recovery pipeline, taints, etc.)
 cd ~/project/infrarevive/terraform
 
 JENKINS_IP=$(terraform output -raw jenkins_public_ip 2>/dev/null)
-JENKINS_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-jenkins" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].InstanceId' --output text)
-MASTER_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-master" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].InstanceId' --output text)
-WORKER_IDS=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-*" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[*].Instances[0].InstanceId' --output text)
+JENKINS_ID=$(terraform output -raw jenkins_instance_id)
+MASTER_ID=$(terraform output -raw master_instance_id)
+WORKER_IDS=$(terraform output -json worker_instance_ids | jq -r '.[]' | tr '\n' ' ')
 
 cd ~/project/infrarevive
 

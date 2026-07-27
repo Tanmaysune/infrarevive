@@ -294,8 +294,8 @@ ${workerLines}
                         def allTargets = ([masterIp] + workerIps).findAll { it?.trim() }.collect { "          - '${it}:9100'" }.join("\n")
                         def flaskApiTarget = workerIps[0]?.trim() ? "${workerIps[0].trim()}:30500" : ""
                         writeFile file: '/tmp/prometheus-recovery.yml', text: """global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
+  scrape_interval: 5s
+  evaluation_interval: 5s
 rule_files:
   - "alert.rules.yml"
 alerting:

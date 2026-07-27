@@ -5,10 +5,17 @@ export AWS_PAGER=""
 
 echo "=== STARTING ALL INFRAREVIVE RESOURCES ==="
 
-# Get instance IDs by tag
-JENKINS_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-jenkins" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].InstanceId' --output text)
-MASTER_ID=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-master" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].InstanceId' --output text)
-WORKER_IDS=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-*" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[*].Instances[0].InstanceId' --output text)
+# Instance IDs sourced from Terraform state, NOT from AWS tag-based lookups.
+# Tags accumulate stale/duplicate matches across destroy+recreate cycles
+# (recovery pipeline, taints, etc.) since terminated instances stay visible
+# in the AWS API for up to an hour. Terraform state only ever tracks the
+# current real resource behind each address -- this eliminates that whole
+# class of bug permanently instead of just filtering around it.
+cd ~/project/infrarevive/terraform
+JENKINS_ID=$(terraform output -raw jenkins_instance_id)
+MASTER_ID=$(terraform output -raw master_instance_id)
+WORKER_IDS=$(terraform output -json worker_instance_ids | jq -r '.[]' | tr '\n' ' ')
+cd ~/project/infrarevive
 
 # Ensure all instances are fully stopped before starting
 echo ""
@@ -34,19 +41,24 @@ echo "All instances are running."
 
 echo ""
 echo "--- Fetching new IPs ---"
+# Always resolve by instance ID (--instance-ids), never by tag -- an
+# instance ID can only ever refer to exactly one real instance, so this
+# is unambiguous even if old terminated instances share the same Name tag.
 JENKINS_IP=$(aws ec2 describe-instances --instance-ids $JENKINS_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
 MASTER_IP=$(aws ec2 describe-instances --instance-ids $MASTER_ID --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
-WORKER0_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-0" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
-WORKER1_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-1" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
-WORKER2_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-2" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+
+WORKER_ID_ARRAY=($WORKER_IDS)
+WORKER0_IP=$(aws ec2 describe-instances --instance-ids ${WORKER_ID_ARRAY[0]} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+WORKER1_IP=$(aws ec2 describe-instances --instance-ids ${WORKER_ID_ARRAY[1]} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
+WORKER2_IP=$(aws ec2 describe-instances --instance-ids ${WORKER_ID_ARRAY[2]} --query 'Reservations[0].Instances[0].PublicIpAddress' --output text)
 
 if [ "$WORKER0_IP" == "None" ] || [ "$WORKER1_IP" == "None" ] || [ "$WORKER2_IP" == "None" ]; then
   echo ""
   echo "--- Missing worker IP detected, re-applying Terraform ---"
   (cd ~/project/infrarevive/terraform && terraform apply -auto-approve)
-  WORKER0_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-0" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
-  WORKER1_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-1" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
-  WORKER2_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-2" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
+  WORKER0_IP=$(aws ec2 describe-instances --instance-ids ${WORKER_ID_ARRAY[0]} --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
+  WORKER1_IP=$(aws ec2 describe-instances --instance-ids ${WORKER_ID_ARRAY[1]} --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
+  WORKER2_IP=$(aws ec2 describe-instances --instance-ids ${WORKER_ID_ARRAY[2]} --query "Reservations[0].Instances[0].PublicIpAddress" --output text)
   echo "Corrected Worker IPs: $WORKER0_IP $WORKER1_IP $WORKER2_IP"
 fi
 
@@ -60,9 +72,9 @@ echo "Worker 2 : $WORKER2_IP"
 # targets so alerts (and the recovery pipeline) don't silently break
 # every time public IPs change.
 MASTER_PRIVATE_IP=$(aws ec2 describe-instances --instance-ids $MASTER_ID --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
-WORKER0_PRIVATE_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-0" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
-WORKER1_PRIVATE_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-1" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
-WORKER2_PRIVATE_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=infrarevive-worker-2" "Name=instance-state-name,Values=pending,running,shutting-down,stopping,stopped" --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
+WORKER0_PRIVATE_IP=$(aws ec2 describe-instances --instance-ids ${WORKER_ID_ARRAY[0]} --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
+WORKER1_PRIVATE_IP=$(aws ec2 describe-instances --instance-ids ${WORKER_ID_ARRAY[1]} --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
+WORKER2_PRIVATE_IP=$(aws ec2 describe-instances --instance-ids ${WORKER_ID_ARRAY[2]} --query 'Reservations[0].Instances[0].PrivateIpAddress' --output text)
 
 cat > ~/project/infrarevive/.env << EOF
 JENKINS_IP=$JENKINS_IP
@@ -92,8 +104,8 @@ echo ""
 echo "--- Updating prometheus.yml ---"
 cat > ~/project/infrarevive/prometheus/prometheus.yml << PROM
 global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
+  scrape_interval: 5s
+  evaluation_interval: 5s
 rule_files:
   - "alert.rules.yml"
 alerting:
@@ -215,6 +227,44 @@ echo ""
 echo "--- Cleaning up ghost/stale nodes ---"
 kubectl get nodes --no-headers 2>/dev/null | awk '$2=="NotReady"{print $1}' | xargs -r -I{} kubectl delete node {} || true
 
+# -------------------------------------------------------
+# SELF-HEAL: JOIN ANY WORKER THAT ISN'T ACTUALLY IN THE
+# CLUSTER YET. Covers every way a worker can end up as a
+# healthy EC2 instance that was never kubeadm-joined:
+# partial recovery-pipeline failures, manual taints,
+# instances swapped outside the normal flow, etc. Safe to
+# run every single start -- already-joined workers are
+# detected and skipped, nothing is touched on them.
+# -------------------------------------------------------
+echo ""
+echo "--- Checking all workers are actually joined to the cluster ---"
+
+CURRENT_NODE_IPS=$(kubectl get nodes -o wide --no-headers 2>/dev/null | awk '{print $6}')
+
+for idx in 0 1 2; do
+  eval WPUB=\$WORKER${idx}_IP
+  WPRIV=$(cd terraform && terraform output -json worker_private_ips | jq -r ".[$idx]")
+
+  if echo "$CURRENT_NODE_IPS" | grep -q "^${WPRIV}$"; then
+    echo "Worker $idx ($WPRIV / $WPUB) already joined -- skipping."
+    continue
+  fi
+
+  echo "Worker $idx ($WPRIV / $WPUB) is NOT in the cluster -- joining now..."
+
+  # Fresh join token/command from master (old ones expire after 24h)
+  ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no ec2-user@$MASTER_IP \
+    "kubeadm token create --print-join-command" > /tmp/kubeadm_join_command.sh
+
+  if [ ! -s /tmp/kubeadm_join_command.sh ]; then
+    echo "WARNING: could not fetch a join command from master -- skipping worker $idx, fix manually."
+    continue
+  fi
+
+  ansible-playbook -i ansible/inventory.ini ansible/setup-workers.yml --limit "$WPUB" \
+    || echo "WARNING: Ansible run failed for worker $idx ($WPUB) -- check manually, continuing with the rest."
+done
+
 echo "--- Ensuring flannel CNI is healthy ---"
 
 FLANNEL_MANIFEST=~/project/infrarevive/kubernetes/kube-flannel.yaml
@@ -235,7 +285,13 @@ for i in $(seq 1 20); do
   sleep 5
 done
 
-kubectl apply -f "$FLANNEL_MANIFEST"
+for i in $(seq 1 5); do
+  if kubectl apply -f "$FLANNEL_MANIFEST"; then
+    break
+  fi
+  echo "kubectl apply failed (attempt $i/5), API server likely still settling after boot -- retrying in 10s..."
+  sleep 10
+done
 
 echo "Waiting for flannel pods to be ready..."
 kubectl -n kube-flannel rollout status ds/kube-flannel-ds --timeout=120s || true

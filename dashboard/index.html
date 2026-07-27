@@ -517,7 +517,7 @@ table.data-table tbody tr:last-child td { border-bottom:none; }
 // ============================================================
 const MASTER_IP = '%%MASTER_IP%%';
 const JENKINS_IP = '%%JENKINS_IP%%';
-const POLL_INTERVAL = 15000; // 15 seconds
+const POLL_INTERVAL = 10000; // 10 seconds -- matches dashboard-api's CACHE_TTL, no benefit polling faster
 
 // API proxies (same-origin via nginx)
 const API = {

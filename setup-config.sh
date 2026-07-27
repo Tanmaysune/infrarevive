@@ -49,8 +49,8 @@ EOF
 # Auto-fill prometheus/prometheus.yml with real IPs
 cat > prometheus/prometheus.yml << EOF
 global:
-  scrape_interval: 15s
-  evaluation_interval: 15s
+  scrape_interval: 5s
+  evaluation_interval: 5s
 
 rule_files:
   - "alert.rules.yml"
@@ -192,10 +192,23 @@ ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no ec2-user@$JENKINS_
 echo "Alertmanager config deployed."
 
 echo ""
+echo "--- Deploying Prometheus alert rules ---"
+# prometheus.yml references alert.rules.yml via rule_files, but nothing
+# was copying the actual file -- Prometheus loaded zero alert rules and
+# NodeDown never fired regardless of worker state.
+scp -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no \
+    prometheus/alert.rules.yml \
+    ec2-user@$JENKINS_IP:/tmp/alert.rules.yml
+ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no ec2-user@$JENKINS_IP \
+    "sudo cp /tmp/alert.rules.yml /etc/prometheus/alert.rules.yml && sudo chown prometheus:prometheus /etc/prometheus/alert.rules.yml"
+echo "Alert rules deployed."
+
+echo ""
 echo "=== Setup Complete ==="
 echo "inventory.ini    : filled with real IPs"
 echo "prometheus.yml   : filled with real IPs"
 echo "alertmanager.yml : deployed to Jenkins EC2 with real key"
+echo "alert.rules.yml  : deployed to Jenkins EC2"
 echo ""
 echo "================================================"
 echo "DASHBOARD  : http://$JENKINS_IP/infrarevive/"

@@ -1,6 +1,6 @@
 groups:
   - name: node_alerts
-    interval: 15s
+    interval: 5s
     rules:
 
       # --------------------------------------------------------
@@ -11,16 +11,16 @@ groups:
       # --------------------------------------------------------
       - alert: NodeDown
         expr: up{job="node-exporter"} == 0
-        for: 30s
+        for: 15s
         labels:
           severity: critical
         annotations:
           summary: "Kubernetes node is DOWN"
-          description: "Node {{ $labels.instance }} has been unreachable for more than 30 seconds. Recovery pipeline will be triggered."
+          description: "Node {{ $labels.instance }} has been unreachable for more than 15 seconds. Recovery pipeline will be triggered."
 
       - alert: InstanceDown
         expr: up{job="node-exporter"} == 0
-        for: 15s
+        for: 10s
         labels:
           severity: critical
         annotations:
@@ -74,7 +74,7 @@ groups:
       # --------------------------------------------------------
       - alert: NodeNotReady
         expr: up{job="node-exporter"} == 0
-        for: 45s
+        for: 20s
         labels:
           severity: critical
         annotations:
