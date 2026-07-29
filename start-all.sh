@@ -151,8 +151,8 @@ wait_for_ssh() {
     fi
     sleep 5
   done
-  echo "ERROR: $label SSH not ready after 200s. Aborting."
-  exit 1
+  echo "ERROR: $label SSH not ready after 200s."
+  return 1
 }
 
 wait_for_ssh $MASTER_IP "Master"
@@ -252,6 +252,15 @@ for idx in 0 1 2; do
 
   echo "Worker $idx ($WPRIV / $WPUB) is NOT in the cluster -- joining now..."
 
+  # sshd/cloud-init on a freshly-booted instance can still be initializing
+  # even though EC2 already reports "running" -- ansible-playbook with no
+  # wait here is what caused "Connection closed by remote host" / UNREACHABLE
+  # against a worker that just started. Wait for real SSH readiness first.
+  if ! wait_for_ssh "$WPUB" "Worker $idx" 2>/dev/null; then
+    echo "WARNING: worker $idx ($WPUB) never became SSH-reachable -- skipping, fix manually."
+    continue
+  fi
+
   # Fresh join token/command from master (old ones expire after 24h)
   ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no ec2-user@$MASTER_IP \
     "kubeadm token create --print-join-command" > /tmp/kubeadm_join_command.sh
@@ -261,8 +270,20 @@ for idx in 0 1 2; do
     continue
   fi
 
-  ansible-playbook -i ansible/inventory.ini ansible/setup-workers.yml --limit "$WPUB" \
-    || echo "WARNING: Ansible run failed for worker $idx ($WPUB) -- check manually, continuing with the rest."
+  # Retry the playbook itself -- even after SSH is "ready" per wait_for_ssh,
+  # the very first real ansible connection can still hit a closing window.
+  JOIN_OK=0
+  for attempt in 1 2 3; do
+    if ansible-playbook -i ansible/inventory.ini ansible/setup-workers.yml --limit "$WPUB"; then
+      JOIN_OK=1
+      break
+    fi
+    echo "Ansible run failed for worker $idx ($WPUB), attempt $attempt/3 -- retrying in 15s..."
+    sleep 15
+  done
+  if [ "$JOIN_OK" -ne 1 ]; then
+    echo "WARNING: Ansible run failed for worker $idx ($WPUB) after 3 attempts -- check manually, continuing with the rest."
+  fi
 done
 
 echo "--- Ensuring flannel CNI is healthy ---"

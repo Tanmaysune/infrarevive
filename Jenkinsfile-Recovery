@@ -237,10 +237,20 @@ ${workerLines}
         stage('Get Fresh Join Command') {
             steps {
                 sh """
-                    ssh -o StrictHostKeyChecking=no \
-                        -i ${SSH_KEY} \
-                        ec2-user@${env.MASTER_IP} \
-                        'kubeadm token create --print-join-command' > /tmp/kubeadm_join_command.sh
+                    for i in 1 2 3 4 5; do
+                        ssh -o StrictHostKeyChecking=no \
+                            -o ConnectTimeout=10 \
+                            -i ${SSH_KEY} \
+                            ec2-user@${env.MASTER_IP} \
+                            'kubeadm token create --print-join-command' > /tmp/kubeadm_join_command.sh && \
+                        [ -s /tmp/kubeadm_join_command.sh ] && break
+                        echo "Join command fetch failed (attempt \$i/5) -- retrying in 10s..."
+                        sleep 10
+                    done
+                    if [ ! -s /tmp/kubeadm_join_command.sh ]; then
+                        echo "ERROR: could not get join command from master after 5 attempts"
+                        exit 1
+                    fi
                     chmod +x /tmp/kubeadm_join_command.sh
                     echo "Join command:"
                     cat /tmp/kubeadm_join_command.sh
@@ -355,4 +365,5 @@ ${allTargets}
         }
     }
 }
+
 
