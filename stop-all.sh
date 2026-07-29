@@ -8,6 +8,8 @@ echo "=== STOPPING ALL INFRAREVIVE RESOURCES ==="
 # destroy+recreate cycle (recovery pipeline, taints, etc.)
 cd ~/project/infrarevive/terraform
 
+terraform apply -refresh-only -auto-approve
+
 JENKINS_IP=$(terraform output -raw jenkins_public_ip 2>/dev/null)
 JENKINS_ID=$(terraform output -raw jenkins_instance_id)
 MASTER_ID=$(terraform output -raw master_instance_id)
@@ -22,15 +24,14 @@ echo "Workers  IDs: $WORKER_IDS"
 # Stop Prometheus, Alertmanager and NGINX on Jenkins EC2
 echo ""
 echo "--- Stopping services on Jenkins EC2 ---"
-ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no \
-    -o ConnectTimeout=10 \
+if ssh -i ~/.ssh/infrarevive-key.pem -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
     ec2-user@$JENKINS_IP \
-    "sudo systemctl stop dashboard-api 2>/dev/null || true; \
-     sudo systemctl stop prometheus 2>/dev/null || true; \
-     sudo systemctl stop alertmanager 2>/dev/null || true; \
-     sudo systemctl stop nginx 2>/dev/null || true; \
-     echo 'Prometheus, Alertmanager, NGINX and Dashboard API stopped'" 2>/dev/null || true
-
+    "sudo systemctl stop dashboard-api prometheus alertmanager nginx 2>/dev/null"; then
+  echo "Services stopped."
+else
+  echo "WARNING: could not reach Jenkins EC2 ($JENKINS_IP) to stop monitoring services."
+  echo "Prometheus/Alertmanager may auto-restart on next boot and re-fire alerts."
+fi
 echo "Services stopped."
 
 # Clear .env file so stale IPs are not reused

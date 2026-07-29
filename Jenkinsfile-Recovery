@@ -72,6 +72,7 @@ pipeline {
             steps {
                 dir("${TERRAFORM_DIR}") {
                     sh "terraform init -reconfigure"
+                    sh "terraform apply -refresh-only -auto-approve"
                 }
             }
         }

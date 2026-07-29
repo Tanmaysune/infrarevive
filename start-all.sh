@@ -40,6 +40,12 @@ aws ec2 wait instance-running --instance-ids $JENKINS_ID $MASTER_ID $WORKER_IDS
 echo "All instances are running."
 
 echo ""
+echo "--- Syncing Terraform state with live AWS values ---"
+cd ~/project/infrarevive/terraform
+terraform apply -refresh-only -auto-approve
+cd ~/project/infrarevive
+
+echo ""
 echo "--- Fetching new IPs ---"
 # Always resolve by instance ID (--instance-ids), never by tag -- an
 # instance ID can only ever refer to exactly one real instance, so this
