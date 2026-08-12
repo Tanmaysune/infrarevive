@@ -105,7 +105,7 @@
   <path class="draw" d="M240 220 H960" stroke="url(#rule)" stroke-width="2" fill="none" stroke-linecap="round"/>
 
   <text class="sub fade-c" x="603" y="254" text-anchor="middle" fill="#94A3B8">DEAD SERVER RECOVERY SYSTEM</text>
-  <text class="desc fade-d" x="601" y="280" text-anchor="middle" fill="#5C6B88">Autonomous Kubernetes node recovery on AWS</text>
+  <text class="desc fade-d" x="601" y="280" text-anchor="middle" fill="#5C6B88"></text>
 
   <!-- status chips -->
   <g class="fade-d">
