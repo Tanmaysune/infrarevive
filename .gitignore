@@ -1,21 +1,75 @@
+# ---------------------------------------------------------------
 # Environment & secrets
+# ---------------------------------------------------------------
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.ppk
+id_rsa*
+kubeconfig
+.kube/
 
+# ---------------------------------------------------------------
 # Terraform
+# ---------------------------------------------------------------
 terraform/.terraform/
-terraform/terraform.tfstate
-terraform/terraform.tfstate.backup
-terraform/*.tfplan
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+.terraformrc
+terraform.rc
 
-# AWS CLI bundle (vendored binary, ~40MB)
+# ---------------------------------------------------------------
+# Generated at runtime by setup-config.sh / start-all.sh
+# (real IPs get written into these — never commit them)
+# ---------------------------------------------------------------
+ansible/inventory.ini
+prometheus/prometheus.yml
+dashboard_live.html
+
+# ---------------------------------------------------------------
+# Vendored / downloaded tooling — install from upstream instead
+# ---------------------------------------------------------------
+aws/
 awscliv2.zip
-aws/dist/
+*.zip
+*.tar.gz
 
+# ---------------------------------------------------------------
 # Python
+# ---------------------------------------------------------------
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
 
-# OS
+# ---------------------------------------------------------------
+# Editors, OS junk, backups
+# ---------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.bak
+*.orig
+*.tmp
 .DS_Store
 Thumbs.db
+desktop.ini
+
+# ---------------------------------------------------------------
+# Logs
+# ---------------------------------------------------------------
+*.log
+logs/

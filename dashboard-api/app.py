@@ -397,14 +397,18 @@ def system_services():
 
 
 def _jenkins_version():
-    stdout, _, _ = run_cmd(
-        ["curl", "-s", "http://localhost:8080/api/json"],
+    # Jenkins version is in the X-Jenkins response header, not the JSON body.
+    # curl -I fetches headers only. We parse the X-Jenkins line from the output.
+    stdout, _, rc = run_cmd(
+        ["curl", "-s", "-I", "http://localhost:8080/"],
         timeout=5
     )
-    try:
-        return json.loads(stdout).get("mode", "") if stdout else ""
-    except Exception:
+    if rc != 0 or not stdout:
         return ""
+    for line in stdout.splitlines():
+        if line.lower().startswith("x-jenkins:"):
+            return line.split(":", 1)[1].strip()
+    return ""
 
 
 def _prometheus_version():

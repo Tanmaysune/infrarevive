@@ -1,31 +1,50 @@
 groups:
   - name: node_alerts
-    interval: 5s
+    interval: 15s
     rules:
 
       # --------------------------------------------------------
-      # NODE DOWN / INSTANCE DOWN
-      # Fires when a node-exporter target stops responding.
-      # This is what triggers the recovery pipeline via the
-      # Alertmanager -> Jenkins webhook.
+      # NODE DOWN — PRIMARY RECOVERY TRIGGER
+      # This is the ONLY alert that should call the Jenkins webhook.
+      # for: 60s means the node must be unreachable for a full
+      # minute before this fires. This prevents boot-time false
+      # alerts — node-exporter takes 30-45s to start after EC2 boot.
       # --------------------------------------------------------
       - alert: NodeDown
         expr: up{job="node-exporter"} == 0
-        for: 15s
+        for: 60s
         labels:
           severity: critical
         annotations:
           summary: "Kubernetes node is DOWN"
-          description: "Node {{ $labels.instance }} has been unreachable for more than 15 seconds. Recovery pipeline will be triggered."
+          description: "Node {{ $labels.instance }} has been unreachable for more than 60 seconds. Recovery pipeline will be triggered."
 
+      # --------------------------------------------------------
+      # INSTANCE DOWN — informational only, inhibited by NodeDown
+      # Alertmanager inhibit_rules suppress this whenever NodeDown
+      # fires for the same instance. Does NOT trigger Jenkins webhook.
+      # --------------------------------------------------------
       - alert: InstanceDown
         expr: up{job="node-exporter"} == 0
-        for: 10s
+        for: 90s
         labels:
-          severity: critical
+          severity: warning
         annotations:
           summary: "Instance {{ $labels.instance }} is down"
           description: "Prometheus cannot scrape node-exporter on {{ $labels.instance }}."
+
+      # --------------------------------------------------------
+      # NODE NOT READY — informational only, inhibited by NodeDown
+      # Does NOT trigger Jenkins webhook.
+      # --------------------------------------------------------
+      - alert: NodeNotReady
+        expr: up{job="node-exporter"} == 0
+        for: 90s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kubernetes node NotReady"
+          description: "Node {{ $labels.instance }} is not responding. Kubernetes will mark it NotReady."
 
       # --------------------------------------------------------
       # HIGH CPU
@@ -53,8 +72,6 @@ groups:
 
       # --------------------------------------------------------
       # DISK FULL
-      # Fires when root filesystem usage exceeds 85%.
-      # Excludes tmpfs/overlay/docker overlay filesystems.
       # --------------------------------------------------------
       - alert: DiskFull
         expr: (1 - node_filesystem_avail_bytes{mountpoint="/",fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{mountpoint="/",fstype!~"tmpfs|overlay"}) * 100 > 85
@@ -64,19 +81,3 @@ groups:
         annotations:
           summary: "Disk almost full on {{ $labels.instance }}"
           description: "Root filesystem usage above 85% on {{ $labels.instance }} (mountpoint /)."
-
-      # --------------------------------------------------------
-      # NODE NOT READY (via network reachability)
-      # Without kube-state-metrics this approximates K8s node
-      # readiness: if node-exporter is up but the node has been
-      # unreachable for a short window, flag it as not-ready.
-      # The primary recovery trigger remains NodeDown (critical).
-      # --------------------------------------------------------
-      - alert: NodeNotReady
-        expr: up{job="node-exporter"} == 0
-        for: 20s
-        labels:
-          severity: critical
-        annotations:
-          summary: "Kubernetes node NotReady"
-          description: "Node {{ $labels.instance }} is not responding. Kubernetes will mark it NotReady. Recovery in progress."

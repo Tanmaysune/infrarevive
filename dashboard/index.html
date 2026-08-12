@@ -347,9 +347,142 @@ table.data-table tbody tr:last-child td { border-bottom:none; }
 
 @media(max-width:1024px) { .graphs-grid,.dual-grid { grid-template-columns:1fr; } .cluster-bar { grid-template-columns:repeat(2,1fr); } }
 @media(max-width:768px) { aside.sidebar { display:none; } main.content { margin-left:0; } .cards-grid { grid-template-columns:1fr; } .alert-summary { grid-template-columns:1fr; } .detail-grid { grid-template-columns:1fr; } }
+
+/* ============================================================
+   LOGIN / AUTH OVERLAY
+   ============================================================ */
+#auth-overlay {
+  position:fixed; inset:0; z-index:9999;
+  background:
+    radial-gradient(1200px 600px at 90% -10%, rgba(79,70,229,0.12), transparent),
+    radial-gradient(900px 500px at -10% 20%, rgba(8,145,178,0.08), transparent),
+    var(--bg-base);
+  display:flex; align-items:center; justify-content:center;
+}
+#auth-overlay.hidden { display:none; }
+.auth-card {
+  background:var(--bg-surface);
+  backdrop-filter:blur(var(--blur)) saturate(160%);
+  -webkit-backdrop-filter:blur(var(--blur)) saturate(160%);
+  border:1px solid var(--border-strong);
+  border-radius:var(--radius);
+  box-shadow:var(--shadow-lift);
+  padding:40px 44px;
+  width:100%; max-width:420px;
+  display:flex; flex-direction:column; gap:24px;
+}
+.auth-logo {
+  display:flex; align-items:center; gap:14px;
+}
+.auth-logo-icon {
+  width:52px; height:52px; border-radius:16px;
+  background:linear-gradient(135deg,var(--primary),var(--cyan));
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 6px 20px var(--primary-glow); flex-shrink:0;
+}
+.auth-logo-icon svg { width:26px; height:26px; stroke:#fff; fill:none; stroke-width:2.5; }
+.auth-logo-text h2 { font-size:20px; font-weight:800; letter-spacing:-0.4px; }
+.auth-logo-text p { font-size:11px; color:var(--text-muted); font-weight:600; text-transform:uppercase; letter-spacing:1.2px; margin-top:3px; }
+.auth-title { font-size:15px; font-weight:700; color:var(--text-primary); }
+.auth-sub { font-size:12px; color:var(--text-secondary); margin-top:4px; line-height:1.5; }
+.auth-field { display:flex; flex-direction:column; gap:8px; }
+.auth-field label { font-size:12px; font-weight:700; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.6px; }
+.auth-field input {
+  background:var(--bg-input); border:1px solid var(--border-strong);
+  border-radius:var(--radius-sm); padding:13px 16px;
+  font-size:14px; color:var(--text-primary); font-family:'Inter',sans-serif;
+  outline:none; transition:border-color .15s, box-shadow .15s;
+  width:100%;
+}
+.auth-field input:focus { border-color:var(--primary); box-shadow:0 0 0 3px var(--primary-light); }
+.auth-field input::placeholder { color:var(--text-muted); }
+.auth-err {
+  font-size:12px; color:var(--danger); font-weight:600;
+  background:var(--danger-bg); border:1px solid var(--danger-border);
+  border-radius:var(--radius-sm); padding:10px 14px;
+  display:none;
+}
+.auth-err.show { display:block; }
+.auth-success {
+  font-size:12px; color:var(--success); font-weight:600;
+  background:var(--success-bg); border:1px solid var(--success-border);
+  border-radius:var(--radius-sm); padding:10px 14px;
+  display:none;
+}
+.auth-success.show { display:block; }
+.auth-btn {
+  width:100%; padding:14px; border-radius:20px;
+  background:var(--primary); color:#fff;
+  font-size:13px; font-weight:700; border:none; cursor:pointer;
+  box-shadow:0 6px 18px var(--primary-glow);
+  transition:filter .15s, transform .15s;
+}
+.auth-btn:hover { filter:brightness(1.1); transform:translateY(-1px); }
+.auth-hint { font-size:11px; color:var(--text-muted); text-align:center; }
+.auth-lock-icon { text-align:center; }
+.auth-lock-icon svg { width:42px; height:42px; stroke:var(--primary); fill:none; stroke-width:1.5; opacity:.7; }
 </style>
 </head>
 <body>
+
+<!-- ======= AUTH OVERLAY ======= -->
+<div id="auth-overlay">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">
+        <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+      </div>
+      <div class="auth-logo-text">
+        <h2>INFRAREVIVE</h2>
+        <p>Admin Access</p>
+      </div>
+    </div>
+
+    <!-- SETUP PANEL (shown on first time) -->
+    <div id="auth-setup-panel">
+      <div class="auth-lock-icon">
+        <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <div>
+        <div class="auth-title">Set Admin Password</div>
+        <div class="auth-sub">First time setup. Set a password to protect the InfraRevive dashboard. This password will be saved permanently — you only do this once.</div>
+      </div>
+      <div class="auth-field">
+        <label>New Password</label>
+        <input type="password" id="setup-pass" placeholder="Enter new admin password" autocomplete="new-password" />
+      </div>
+      <div class="auth-field">
+        <label>Confirm Password</label>
+        <input type="password" id="setup-confirm" placeholder="Confirm password" autocomplete="new-password" />
+      </div>
+      <div class="auth-err" id="setup-err"></div>
+      <button class="auth-btn" onclick="handleSetup()">Set Password &amp; Enter Dashboard</button>
+      <div class="auth-hint">Password stored locally. No server required.</div>
+    </div>
+
+    <!-- LOGIN PANEL (shown every time after setup) -->
+    <div id="auth-login-panel" style="display:none">
+      <div class="auth-lock-icon">
+        <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      </div>
+      <div>
+        <div class="auth-title">Admin Login</div>
+        <div class="auth-sub">Enter your admin password to access the InfraRevive dashboard.</div>
+      </div>
+      <div class="auth-field">
+        <label>Password</label>
+        <input type="password" id="login-pass" placeholder="Enter admin password"
+               autocomplete="current-password"
+               onkeydown="if(event.key==='Enter')handleLogin()" />
+      </div>
+      <div class="auth-err" id="login-err"></div>
+      <button class="auth-btn" onclick="handleLogin()">Enter Dashboard</button>
+      <div class="auth-hint">Forgot password? Clear site data in browser settings to reset.</div>
+    </div>
+  </div>
+</div>
+<!-- ======= END AUTH OVERLAY ======= -->
+
 <div class="app">
 
   <aside class="sidebar">
@@ -389,6 +522,10 @@ table.data-table tbody tr:last-child td { border-bottom:none; }
       </div>
       <div class="engine-badge">
         <span class="dot"></span> Recovery Engine Active
+      </div>
+      <div class="theme-toggle" onclick="handleLogout()" style="color:var(--danger);border-color:var(--danger-border);background:var(--danger-bg);">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Logout</span>
       </div>
     </div>
   </aside>
@@ -554,6 +691,169 @@ table.data-table tbody tr:last-child td { border-bottom:none; }
 </div>
 
 <script>
+/* ============================================================
+   AUTH — localStorage-based admin password
+   ============================================================ */
+const AUTH_KEY   = 'infrarevive-admin-hash';
+const SESSION_KEY = 'infrarevive-session';
+
+/* Simple hash — not crypto, but good enough for a local dashboard */
+function hashPass(str) {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) ^ str.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(16);
+}
+
+function isPasswordSet() {
+  return !!localStorage.getItem(AUTH_KEY);
+}
+
+function isSessionActive() {
+  return sessionStorage.getItem(SESSION_KEY) === '1';
+}
+
+function setSession() {
+  sessionStorage.setItem(SESSION_KEY, '1');
+}
+
+function clearSession() {
+  sessionStorage.removeItem(SESSION_KEY);
+}
+
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function hideError(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+function handleSetup() {
+  const pass    = document.getElementById('setup-pass').value.trim();
+  const confirm = document.getElementById('setup-confirm').value.trim();
+  hideError('setup-err');
+
+  if (pass.length < 6) {
+    showError('setup-err', 'Password must be at least 6 characters.');
+    return;
+  }
+  if (pass !== confirm) {
+    showError('setup-err', 'Passwords do not match.');
+    return;
+  }
+
+  localStorage.setItem(AUTH_KEY, hashPass(pass));
+  setSession();
+  unlockDashboard();
+}
+
+function handleLogin() {
+  const pass = document.getElementById('login-pass').value;
+  hideError('login-err');
+
+  if (!pass) {
+    showError('login-err', 'Enter your password.');
+    return;
+  }
+
+  const stored = localStorage.getItem(AUTH_KEY);
+  if (hashPass(pass) !== stored) {
+    showError('login-err', 'Incorrect password.');
+    document.getElementById('login-pass').value = '';
+    document.getElementById('login-pass').focus();
+    return;
+  }
+
+  setSession();
+  unlockDashboard();
+}
+
+function handleLogout() {
+  clearSession();
+  location.reload();
+}
+
+function unlockDashboard() {
+  document.getElementById('auth-overlay').classList.add('hidden');
+  /* Start data polling only after login */
+  initDashboard();
+}
+
+(function checkAuth() {
+  const overlay = document.getElementById('auth-overlay');
+
+  if (isSessionActive()) {
+    /* Already logged in this tab session — go straight to dashboard */
+    overlay.classList.add('hidden');
+    /* initDashboard will be called at bottom of script */
+    return;
+  }
+
+  /* Show overlay. Choose panel based on whether password is set */
+  if (isPasswordSet()) {
+    document.getElementById('auth-setup-panel').style.display = 'none';
+    document.getElementById('auth-login-panel').style.display = 'flex';
+    document.getElementById('auth-login-panel').style.flexDirection = 'column';
+    document.getElementById('auth-login-panel').style.gap = '20px';
+    setTimeout(() => document.getElementById('login-pass').focus(), 100);
+  } else {
+    document.getElementById('auth-setup-panel').style.display = 'flex';
+    document.getElementById('auth-setup-panel').style.flexDirection = 'column';
+    document.getElementById('auth-setup-panel').style.gap = '20px';
+    document.getElementById('auth-login-panel').style.display = 'none';
+  }
+})();
+
+/* ============================================================
+   STARTUP COOLDOWN — suppress alert flood on fresh start
+   ============================================================
+   When start-all.sh runs, services take 30-90s to settle.
+   During this window Prometheus fires NodeDown / service alerts
+   before exporters are ready. We ignore alerts that fired
+   within STARTUP_GRACE_MS of the page load (or of the
+   dashboard becoming visible after a start cycle).
+   ============================================================ */
+const STARTUP_GRACE_MS = 90000; /* 90 seconds */
+const PAGE_LOAD_TIME   = Date.now();
+
+function isStartupAlert(alert) {
+  if (!alert.activeAt) return false;
+  const alertTime = new Date(alert.activeAt).getTime();
+  /* If the alert fired within grace period of page load, suppress it */
+  return (PAGE_LOAD_TIME - alertTime) < STARTUP_GRACE_MS &&
+         (Date.now() - alertTime) < STARTUP_GRACE_MS;
+}
+
+/* ============================================================
+   RECOVERY DEDUP — stop re-triggering on already-done builds
+   ============================================================ */
+let _lastSeenBuildNumber = null;
+let _lastSeenBuildResult = null;
+
+function isBuildAlreadyHandled(build) {
+  if (!build || !build.number) return false;
+  /* Same build number AND it already has a final result (SUCCESS/FAILURE/ABORTED) */
+  const finalResults = ['SUCCESS', 'FAILURE', 'ABORTED', 'UNSTABLE'];
+  if (build.number === _lastSeenBuildNumber &&
+      finalResults.includes(build.result)) {
+    return true;
+  }
+  return false;
+}
+
+function trackBuild(build) {
+  if (!build || !build.number) return;
+  _lastSeenBuildNumber = build.number;
+  _lastSeenBuildResult = build.result;
+}
+
+/* ============================================================
+   MAIN APP CONSTANTS
+   ============================================================ */
 const MASTER_IP = '%%MASTER_IP%%';
 const JENKINS_IP = '%%JENKINS_IP%%';
 const POLL_INTERVAL = 10000;
@@ -664,7 +964,13 @@ function renderView() {
 }
 
 function updatePersistentAlerts() {
-  const firing = state.alerts.filter(a => a.state === 'firing');
+  /* Filter out:
+     1. Alerts that fired during startup grace window (suppress flood)
+     2. Alerts for nodes that are already Ready in K8s
+  */
+  const firing = state.alerts.filter(a =>
+    a.state === 'firing' && !isStartupAlert(a)
+  );
   const now = Date.now();
 
   firing.forEach(a => {
@@ -682,7 +988,9 @@ function updatePersistentAlerts() {
 
   Object.keys(state.persistentAlerts).forEach(key => {
     const instanceIp = (key || '').split(':')[0];
-    if (readyIps.has(instanceIp)) {
+    /* Clear alert if node is now ready OR if it was a startup false-alarm */
+    const alert = state.persistentAlerts[key];
+    if (readyIps.has(instanceIp) || (alert && isStartupAlert(alert))) {
       delete state.persistentAlerts[key];
     }
   });
@@ -744,7 +1052,15 @@ function renderClusterBar() {
   const recPanel = document.getElementById('recovery-panel');
   const recTitle = document.getElementById('recovery-panel-title');
   const recDesc = document.getElementById('recovery-panel-desc');
-  if (state.currentBuild && (state.currentBuild.result === null || state.currentBuild.result === 'IN_PROGRESS')) {
+  /* A build is truly "active" only if result is null AND building flag is true.
+     Jenkins sets result=null while running, then sets SUCCESS/FAILURE when done.
+     We must check build.building===true to avoid showing ACTIVE for a finished build
+     that just hasn't refreshed yet, or for false re-triggers on page load. */
+  const buildIsRunning = state.currentBuild &&
+    state.currentBuild.building === true &&
+    state.currentBuild.result === null;
+
+  if (buildIsRunning) {
     recEl.textContent = 'ACTIVE';
     recEl.style.color = 'var(--warning)';
     recPanel.classList.add('active');
@@ -1338,6 +1654,10 @@ async function fetchAllData() {
   }));
 
   tasks.push(fetchJSON(`${API.jenkins}/job/infrarevive-recovery/lastBuild/api/json`).then(d => {
+    if (d && d.number) {
+      /* Track so we don't show a completed build as "in progress" again */
+      trackBuild(d);
+    }
     state.currentBuild = d;
   }));
 
@@ -1364,8 +1684,19 @@ async function refreshAll() {
 
 state.nodeMetrics = { cpu: {}, ram: {}, disk: {} };
 
-refreshAll();
-setInterval(refreshAll, POLL_INTERVAL);
+let _pollInterval = null;
+
+function initDashboard() {
+  /* Prevent double-init if auth overlay was already hidden */
+  if (_pollInterval) return;
+  refreshAll();
+  _pollInterval = setInterval(refreshAll, POLL_INTERVAL);
+}
+
+/* If session was already active (detected in checkAuth above), start now */
+if (isSessionActive()) {
+  initDashboard();
+}
 </script>
 </body>
 </html>

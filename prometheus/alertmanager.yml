@@ -1,19 +1,58 @@
+# InfraRevive Alertmanager Configuration
+# =======================================
+# KEY RULES:
+# 1. ONLY NodeDown (critical) triggers the Jenkins recovery webhook.
+#    InstanceDown and NodeNotReady are duplicate alerts for the same event.
+#    Sending all three to Jenkins means 3 pipeline triggers per dead node.
+#    The inhibit_rules block below suppresses InstanceDown + NodeNotReady
+#    whenever NodeDown is already firing for the same instance.
+#
+# 2. repeat_interval is set to 6h so a sticky alert does not re-trigger
+#    the pipeline every 2h while the recovery is still in progress.
+#
+# 3. group_wait is 30s so transient blips (service restart, boot) don't
+#    fire immediately. This is the startup false-alert fix at the
+#    alertmanager layer (the dashboard JS also has a 90s grace window).
+
+global:
+  resolve_timeout: 5m
+
 route:
-  group_by: ['instance']
-  group_wait: 5s
-  group_interval: 15m
-  repeat_interval: 2h
-  receiver: 'jenkins-webhook'
+  group_by: ['alertname', 'instance']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 6h
+  receiver: 'null'
   routes:
+    # ONLY NodeDown goes to Jenkins. Nothing else triggers recovery.
     - match:
+        alertname: NodeDown
         severity: critical
       receiver: 'jenkins-webhook'
-    - match:
-        severity: warning
-      receiver: 'jenkins-webhook'
+      group_wait: 30s
+      repeat_interval: 6h
 
+# All other alerts (InstanceDown, NodeNotReady, NodeHighCPU, etc.)
+# go to null receiver — they appear in Prometheus/dashboard but do NOT
+# trigger the Jenkins pipeline.
 receivers:
+  - name: 'null'
+
   - name: 'jenkins-webhook'
     webhook_configs:
       - url: 'http://localhost:8080/generic-webhook-trigger/invoke?token=INFRAREVIVE_RECOVERY_TOKEN'
         send_resolved: false
+        http_config:
+          tls_config:
+            insecure_skip_verify: true
+
+# Inhibit rules: when NodeDown is firing for an instance,
+# suppress InstanceDown and NodeNotReady for the SAME instance.
+# This stops 3 alerts from firing 3 separate webhook calls to Jenkins.
+inhibit_rules:
+  - source_match:
+      alertname: NodeDown
+      severity: critical
+    target_match_re:
+      alertname: InstanceDown|NodeNotReady
+    equal: ['instance']

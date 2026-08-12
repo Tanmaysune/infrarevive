@@ -1,0 +1,303 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" width="1200" height="720" role="img" aria-label="InfraRevive monitoring dashboard: cluster status bar, recovery stack service cards, live Prometheus metric graphs and the node table, shown cycling through a node failure and an automatic recovery">
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F3F6FC"/>
+      <stop offset="100%" stop-color="#E7ECF7"/>
+    </linearGradient>
+    <linearGradient id="cpuFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4F46E5" stop-opacity=".26"/>
+      <stop offset="100%" stop-color="#4F46E5" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="ramFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0891B2" stop-opacity=".26"/>
+      <stop offset="100%" stop-color="#0891B2" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-20%" y="-20%" width="140%" height="160%">
+      <feDropShadow dx="0" dy="6" stdDeviation="9" flood-color="#0F172A" flood-opacity="0.07"/>
+    </filter>
+
+    <style>
+      .t  { font-family:'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif; }
+      .m  { font-family:'Consolas','SF Mono','DejaVu Sans Mono',monospace; }
+      .lbl{ font-size:10px; letter-spacing:1.1px; font-weight:700; fill:#94A3B8; }
+      .val{ font-size:21px; font-weight:700; fill:#0F172A; }
+      .h2 { font-size:16px; font-weight:700; fill:#0F172A; }
+      .h3 { font-size:11.5px; font-weight:700; letter-spacing:1.5px; fill:#64748B; }
+      .p  { font-size:11px; fill:#64748B; }
+      .nav{ font-size:12.5px; font-weight:600; fill:#475569; }
+      .cell{ font-size:11px; fill:#334155; }
+
+      .ph { animation: ph 14s linear infinite; }
+      .pf { animation: pf 14s linear infinite; }
+      .pr { animation: pr 14s linear infinite; }
+      @keyframes ph { 0%,34%{opacity:1} 36%,81%{opacity:0} 83%,100%{opacity:1} }
+      @keyframes pf { 0%,34%{opacity:0} 36%,48%{opacity:1} 50%,100%{opacity:0} }
+      @keyframes pr { 0%,48%{opacity:0} 50%,81%{opacity:1} 83%,100%{opacity:0} }
+
+      .draw { stroke-dasharray:900; stroke-dashoffset:900; animation: dr 7s ease-out infinite; }
+      @keyframes dr { 0%{stroke-dashoffset:900} 45%,100%{stroke-dashoffset:0} }
+      .blink { animation: bl 1.6s ease-in-out infinite; }
+      @keyframes bl { 0%,100%{opacity:1} 50%{opacity:.25} }
+    </style>
+  </defs>
+
+  <rect width="1200" height="720" fill="url(#page)"/>
+
+  <!-- ================= SIDEBAR ================= -->
+  <rect x="0" y="0" width="252" height="720" fill="#FFFFFF" fill-opacity=".8"/>
+  <line x1="252" y1="0" x2="252" y2="720" stroke="#0F172A" stroke-opacity=".07"/>
+
+  <g transform="translate(24,30)">
+    <rect x="0" y="0" width="34" height="34" rx="10" fill="#4F46E5" fill-opacity=".12" stroke="#4F46E5" stroke-opacity=".25"/>
+    <path d="M18 8 L10 20 L16.5 20 L15.5 27 L23 15 L16.5 15 Z" fill="#4F46E5"/>
+    <text class="t" x="46" y="16" font-size="15" font-weight="700" letter-spacing="1.6" fill="#0F172A">INFRAREVIVE</text>
+    <text class="t" x="46" y="29" font-size="10.5" fill="#94A3B8">Recovery System</text>
+  </g>
+
+  <g transform="translate(16,96)">
+    <rect x="0" y="0" width="220" height="36" rx="10" fill="#4F46E5" fill-opacity=".10" stroke="#4F46E5" stroke-opacity=".25"/>
+    <g transform="translate(14,10)" stroke="#4F46E5" fill="none" stroke-width="1.7">
+      <rect x="0" y="0" width="6" height="8" rx="1"/><rect x="9" y="0" width="7" height="5" rx="1"/>
+      <rect x="9" y="8" width="7" height="8" rx="1"/><rect x="0" y="11" width="6" height="5" rx="1"/>
+    </g>
+    <text class="t nav" x="44" y="23" fill="#4F46E5">Dashboard</text>
+  </g>
+
+  <g transform="translate(16,140)">
+    <g transform="translate(14,10)" stroke="#64748B" fill="none" stroke-width="1.7">
+      <rect x="0" y="0" width="17" height="6" rx="1.5"/><rect x="0" y="10" width="17" height="6" rx="1.5"/>
+    </g>
+    <text class="t nav" x="44" y="23">Cluster Nodes</text>
+    <g transform="translate(186,15)">
+      <circle class="ph" r="9" fill="#059669" fill-opacity=".12"/>
+      <text class="m ph" y="4" font-size="10" font-weight="700" text-anchor="middle" fill="#059669">4</text>
+      <circle class="pf" r="9" fill="#DC2626" fill-opacity=".14"/>
+      <text class="m pf" y="4" font-size="10" font-weight="700" text-anchor="middle" fill="#DC2626">3</text>
+      <circle class="pr" r="9" fill="#D97706" fill-opacity=".14"/>
+      <text class="m pr" y="4" font-size="10" font-weight="700" text-anchor="middle" fill="#D97706">3</text>
+    </g>
+  </g>
+
+  <g transform="translate(16,184)">
+    <g transform="translate(14,12)" stroke="#64748B" fill="none" stroke-width="1.7" stroke-linecap="round">
+      <polyline points="17,6 14,6 11,14 6,0 4,6 0,6"/>
+    </g>
+    <text class="t nav" x="44" y="23">Recovery</text>
+  </g>
+
+  <g transform="translate(16,228)">
+    <g transform="translate(14,10)" stroke="#64748B" fill="none" stroke-width="1.7" stroke-linejoin="round">
+      <path d="M8.5 0 L0 15 h17 z"/><line x1="8.5" y1="6" x2="8.5" y2="9"/>
+    </g>
+    <text class="t nav" x="44" y="23">Alerts</text>
+    <g transform="translate(186,15)">
+      <circle class="pf" r="9" fill="#DC2626"/>
+      <text class="m pf" y="4" font-size="10" font-weight="700" text-anchor="middle" fill="#fff">1</text>
+      <circle class="pr" r="9" fill="#D97706"/>
+      <text class="m pr" y="4" font-size="10" font-weight="700" text-anchor="middle" fill="#fff">1</text>
+    </g>
+  </g>
+
+  <g transform="translate(16,614)">
+    <rect x="0" y="0" width="220" height="34" rx="10" fill="#0F172A" fill-opacity=".04" stroke="#0F172A" stroke-opacity=".08"/>
+    <circle cx="20" cy="17" r="6" fill="none" stroke="#475569" stroke-width="1.6"/>
+    <text class="t nav" x="38" y="22" font-size="12">Dark Mode</text>
+  </g>
+  <g transform="translate(16,656)">
+    <rect x="0" y="0" width="220" height="34" rx="10" fill="#059669" fill-opacity=".09" stroke="#059669" stroke-opacity=".22"/>
+    <circle class="blink" cx="20" cy="17" r="4.5" fill="#059669"/>
+    <text class="t" x="38" y="21.5" font-size="11.5" font-weight="600" fill="#047857">Recovery Engine Active</text>
+  </g>
+
+  <!-- ================= HEADER ================= -->
+  <text class="t h2" x="280" y="42">INFRAREVIVE — Dead Server Recovery System</text>
+  <text class="t p" x="280" y="60">Real-Time Infrastructure Monitoring &amp; Autonomous Recovery Platform</text>
+  <g transform="translate(1062,30)">
+    <rect x="0" y="0" width="66" height="24" rx="12" fill="#DC2626" fill-opacity=".10" stroke="#DC2626" stroke-opacity=".25"/>
+    <circle class="blink" cx="15" cy="12" r="4" fill="#DC2626"/>
+    <text class="t" x="26" y="16" font-size="10.5" font-weight="700" letter-spacing="1" fill="#DC2626">LIVE</text>
+    <text class="m" x="110" y="16" font-size="11" text-anchor="end" fill="#94A3B8">5s</text>
+  </g>
+
+  <!-- ================= PULSE BANNER ================= -->
+  <g filter="url(#cardShadow)">
+    <rect x="280" y="80" width="892" height="58" rx="16" fill="#FFFFFF" fill-opacity=".78" stroke="#0F172A" stroke-opacity=".07"/>
+  </g>
+  <g transform="translate(310,109)">
+    <circle class="ph" r="9" fill="#059669" fill-opacity=".18"/><circle class="ph" r="4.5" fill="#059669"/>
+    <circle class="pf" r="9" fill="#DC2626" fill-opacity=".18"/><circle class="pf blink" r="4.5" fill="#DC2626"/>
+    <circle class="pr" r="9" fill="#D97706" fill-opacity=".18"/><circle class="pr blink" r="4.5" fill="#D97706"/>
+  </g>
+  <g class="ph">
+    <text class="t" x="336" y="106" font-size="13.5" font-weight="700" fill="#0F172A">All systems healthy</text>
+    <text class="t p" x="336" y="123">No active incidents — cluster is stable</text>
+  </g>
+  <g class="pf">
+    <text class="t" x="336" y="106" font-size="13.5" font-weight="700" fill="#B91C1C">NodeDown — ip-172-20-5-231 is unreachable</text>
+    <text class="t p" x="336" y="123" fill="#DC2626">Alertmanager fired the recovery webhook to Jenkins</text>
+  </g>
+  <g class="pr">
+    <text class="t" x="336" y="106" font-size="13.5" font-weight="700" fill="#B45309">Recovery in progress — replacing worker 2</text>
+    <text class="t p" x="336" y="123" fill="#D97706">Terraform apply complete, Ansible configuring the new node</text>
+  </g>
+
+  <!-- ================= CLUSTER BAR ================= -->
+  <g filter="url(#cardShadow)">
+    <rect x="280" y="154" width="892" height="76" rx="16" fill="#FFFFFF" fill-opacity=".72" stroke="#0F172A" stroke-opacity=".07"/>
+  </g>
+  <g stroke="#0F172A" stroke-opacity=".06">
+    <line x1="407" y1="164" x2="407" y2="220"/><line x1="534" y1="164" x2="534" y2="220"/>
+    <line x1="661" y1="164" x2="661" y2="220"/><line x1="788" y1="164" x2="788" y2="220"/>
+    <line x1="915" y1="164" x2="915" y2="220"/><line x1="1042" y1="164" x2="1042" y2="220"/>
+  </g>
+
+  <text class="t lbl" x="300" y="180">CLUSTER STATUS</text>
+  <g class="ph"><circle cx="306" cy="203" r="5" fill="#059669"/><text class="t" x="320" y="208" font-size="14" font-weight="700" fill="#059669">HEALTHY</text></g>
+  <g class="pf"><circle class="blink" cx="306" cy="203" r="5" fill="#DC2626"/><text class="t" x="320" y="208" font-size="14" font-weight="700" fill="#DC2626">NODE DOWN</text></g>
+  <g class="pr"><circle class="blink" cx="306" cy="203" r="5" fill="#D97706"/><text class="t" x="320" y="208" font-size="14" font-weight="700" fill="#D97706">RECOVERING</text></g>
+
+  <text class="t lbl" x="427" y="180">TOTAL NODES</text>
+  <text class="t val" x="427" y="208">4</text>
+
+  <text class="t lbl" x="554" y="180">HEALTHY</text>
+  <text class="t val ph" x="554" y="208" fill="#059669">4</text>
+  <text class="t val pf" x="554" y="208" fill="#059669">3</text>
+  <text class="t val pr" x="554" y="208" fill="#059669">3</text>
+
+  <text class="t lbl" x="681" y="180">FAILED</text>
+  <text class="t val ph" x="681" y="208" fill="#94A3B8">0</text>
+  <text class="t val pf" x="681" y="208" fill="#DC2626">1</text>
+  <text class="t val pr" x="681" y="208" fill="#DC2626">1</text>
+
+  <text class="t lbl" x="808" y="180">MASTER</text>
+  <text class="t val" x="808" y="208">1</text>
+
+  <text class="t lbl" x="935" y="180">WORKERS</text>
+  <text class="t val ph" x="935" y="208">3</text>
+  <text class="t val pf" x="935" y="208">2</text>
+  <text class="t val pr" x="935" y="208">2</text>
+
+  <text class="t lbl" x="1062" y="180">RECOVERY</text>
+  <text class="t ph" x="1062" y="207" font-size="13" font-weight="700" fill="#94A3B8">IDLE</text>
+  <text class="t pf" x="1062" y="207" font-size="13" font-weight="700" fill="#DC2626">TRIGGERED</text>
+  <text class="t pr" x="1062" y="207" font-size="13" font-weight="700" fill="#D97706">RUNNING #47</text>
+
+  <!-- ================= SERVICE CARDS ================= -->
+  <text class="t h3" x="280" y="262">RECOVERY STACK</text>
+
+  <g transform="translate(280,274)">
+    <g filter="url(#cardShadow)"><rect width="214" height="72" rx="16" fill="#FFFFFF" fill-opacity=".72" stroke="#0F172A" stroke-opacity=".07"/></g>
+    <text class="t" x="18" y="28" font-size="13" font-weight="700" fill="#0F172A">Jenkins</text>
+    <text class="m" x="18" y="46" font-size="10.5" fill="#94A3B8">:8080  ·  2 pipelines</text>
+    <text class="m" x="18" y="60" font-size="10.5" fill="#94A3B8">last build #47</text>
+    <circle cx="196" cy="22" r="5" fill="#059669"/>
+  </g>
+  <g transform="translate(506,274)">
+    <g filter="url(#cardShadow)"><rect width="214" height="72" rx="16" fill="#FFFFFF" fill-opacity=".72" stroke="#0F172A" stroke-opacity=".07"/></g>
+    <text class="t" x="18" y="28" font-size="13" font-weight="700" fill="#0F172A">Prometheus</text>
+    <text class="m" x="18" y="46" font-size="10.5" fill="#94A3B8">:9090  ·  scrape 5s</text>
+    <text class="m ph" x="18" y="60" font-size="10.5" fill="#94A3B8">4/4 targets up</text>
+    <text class="m pf" x="18" y="60" font-size="10.5" fill="#DC2626">3/4 targets up</text>
+    <text class="m pr" x="18" y="60" font-size="10.5" fill="#D97706">3/4 targets up</text>
+    <circle cx="196" cy="22" r="5" fill="#059669"/>
+  </g>
+  <g transform="translate(732,274)">
+    <g filter="url(#cardShadow)"><rect width="214" height="72" rx="16" fill="#FFFFFF" fill-opacity=".72" stroke="#0F172A" stroke-opacity=".07"/></g>
+    <text class="t" x="18" y="28" font-size="13" font-weight="700" fill="#0F172A">Alertmanager</text>
+    <text class="m" x="18" y="46" font-size="10.5" fill="#94A3B8">:9093  ·  webhook</text>
+    <text class="m ph" x="18" y="60" font-size="10.5" fill="#94A3B8">0 active alerts</text>
+    <text class="m pf" x="18" y="60" font-size="10.5" fill="#DC2626">1 firing · NodeDown</text>
+    <text class="m pr" x="18" y="60" font-size="10.5" fill="#D97706">1 firing · NodeDown</text>
+    <circle cx="196" cy="22" r="5" fill="#059669"/>
+  </g>
+  <g transform="translate(958,274)">
+    <g filter="url(#cardShadow)"><rect width="214" height="72" rx="16" fill="#FFFFFF" fill-opacity=".72" stroke="#0F172A" stroke-opacity=".07"/></g>
+    <text class="t" x="18" y="28" font-size="13" font-weight="700" fill="#0F172A">Kubernetes</text>
+    <text class="m" x="18" y="46" font-size="10.5" fill="#94A3B8">v1.29  ·  flannel</text>
+    <text class="m" x="18" y="60" font-size="10.5" fill="#94A3B8">12 pods running</text>
+    <circle cx="196" cy="22" r="5" fill="#059669"/>
+  </g>
+
+  <!-- ================= GRAPHS ================= -->
+  <text class="t h3" x="280" y="382">LIVE METRICS</text>
+
+  <g transform="translate(280,394)">
+    <g filter="url(#cardShadow)"><rect width="440" height="152" rx="16" fill="#FFFFFF" fill-opacity=".72" stroke="#0F172A" stroke-opacity=".07"/></g>
+    <text class="t" x="18" y="26" font-size="12" font-weight="700" fill="#334155">CPU Usage (All Nodes)</text>
+    <text class="m" x="422" y="26" font-size="10" text-anchor="end" fill="#94A3B8">%</text>
+    <g stroke="#0F172A" stroke-opacity=".055">
+      <line x1="18" y1="54" x2="422" y2="54"/><line x1="18" y1="82" x2="422" y2="82"/>
+      <line x1="18" y1="110" x2="422" y2="110"/><line x1="18" y1="132" x2="422" y2="132"/>
+    </g>
+    <path d="M18,116 L58,104 L98,110 L138,88 L178,96 L218,74 L258,86 L298,66 L338,78 L378,62 L422,72 L422,132 L18,132 Z" fill="url(#cpuFill)"/>
+    <path class="draw" d="M18,116 L58,104 L98,110 L138,88 L178,96 L218,74 L258,86 L298,66 L338,78 L378,62 L422,72"
+          fill="none" stroke="#4F46E5" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+    <path class="draw" d="M18,124 L58,120 L98,126 L138,114 L178,118 L218,108 L258,116 L298,104 L338,112 L378,100 L422,108"
+          fill="none" stroke="#7C3AED" stroke-width="1.8" stroke-opacity=".55" stroke-linejoin="round"/>
+  </g>
+
+  <g transform="translate(732,394)">
+    <g filter="url(#cardShadow)"><rect width="440" height="152" rx="16" fill="#FFFFFF" fill-opacity=".72" stroke="#0F172A" stroke-opacity=".07"/></g>
+    <text class="t" x="18" y="26" font-size="12" font-weight="700" fill="#334155">RAM Usage (All Nodes)</text>
+    <text class="m" x="422" y="26" font-size="10" text-anchor="end" fill="#94A3B8">%</text>
+    <g stroke="#0F172A" stroke-opacity=".055">
+      <line x1="18" y1="54" x2="422" y2="54"/><line x1="18" y1="82" x2="422" y2="82"/>
+      <line x1="18" y1="110" x2="422" y2="110"/><line x1="18" y1="132" x2="422" y2="132"/>
+    </g>
+    <path d="M18,96 L58,92 L98,84 L138,90 L178,78 L218,82 L258,70 L298,76 L338,64 L378,70 L422,60 L422,132 L18,132 Z" fill="url(#ramFill)"/>
+    <path class="draw" d="M18,96 L58,92 L98,84 L138,90 L178,78 L218,82 L258,70 L298,76 L338,64 L378,70 L422,60"
+          fill="none" stroke="#0891B2" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+    <path class="draw" d="M18,112 L58,110 L98,106 L138,112 L178,104 L218,108 L258,100 L298,104 L338,96 L378,102 L422,94"
+          fill="none" stroke="#059669" stroke-width="1.8" stroke-opacity=".55" stroke-linejoin="round"/>
+  </g>
+
+  <!-- ================= NODE TABLE ================= -->
+  <text class="t h3" x="280" y="582">CLUSTER NODES</text>
+  <g filter="url(#cardShadow)">
+    <rect x="280" y="594" width="892" height="106" rx="16" fill="#FFFFFF" fill-opacity=".72" stroke="#0F172A" stroke-opacity=".07"/>
+  </g>
+  <rect x="280" y="594" width="892" height="26" fill="#0F172A" fill-opacity=".035"/>
+  <g class="t" font-size="10" font-weight="700" letter-spacing=".8" fill="#64748B">
+    <text x="298" y="611">NODE</text><text x="470" y="611">ROLE</text><text x="560" y="611">STATUS</text>
+    <text x="670" y="611">PRIVATE IP</text><text x="800" y="611">INSTANCE</text><text x="960" y="611">CPU</text>
+    <text x="1040" y="611">RAM</text><text x="1120" y="611">PODS</text>
+  </g>
+
+  <g class="m" font-size="10.5" fill="#334155">
+    <text x="298" y="640">ip-172-20-5-142</text><text x="470" y="640" fill="#4F46E5">master</text>
+    <text x="670" y="640">172.20.5.142</text><text x="800" y="640" fill="#64748B">i-0a4c…e21</text>
+    <text x="960" y="640">18%</text><text x="1040" y="640">42%</text><text x="1120" y="640">6</text>
+
+    <text x="298" y="663">ip-172-20-5-184</text><text x="470" y="663" fill="#64748B">worker</text>
+    <text x="670" y="663">172.20.5.184</text><text x="800" y="663" fill="#64748B">i-07f1…b93</text>
+    <text x="960" y="663">31%</text><text x="1040" y="663">55%</text><text x="1120" y="663">4</text>
+
+    <text x="298" y="686">ip-172-20-5-231</text><text x="470" y="686" fill="#64748B">worker</text>
+    <text x="670" y="686">172.20.5.231</text>
+  </g>
+
+  <g><text class="t" x="560" y="640" font-size="10.5" font-weight="700" fill="#059669">Ready</text></g>
+  <g><text class="t" x="560" y="663" font-size="10.5" font-weight="700" fill="#059669">Ready</text></g>
+
+  <g class="ph">
+    <text class="t" x="560" y="686" font-size="10.5" font-weight="700" fill="#059669">Ready</text>
+    <text class="m" x="800" y="686" font-size="10.5" fill="#64748B">i-0d92…4af</text>
+    <text class="m" x="960" y="686" font-size="10.5" fill="#334155">27%</text>
+    <text class="m" x="1040" y="686" font-size="10.5" fill="#334155">48%</text>
+    <text class="m" x="1120" y="686" font-size="10.5" fill="#334155">2</text>
+  </g>
+  <g class="pf">
+    <text class="t blink" x="560" y="686" font-size="10.5" font-weight="700" fill="#DC2626">NotReady</text>
+    <text class="m" x="800" y="686" font-size="10.5" fill="#DC2626">terminating</text>
+    <text class="m" x="960" y="686" font-size="10.5" fill="#94A3B8">—</text>
+    <text class="m" x="1040" y="686" font-size="10.5" fill="#94A3B8">—</text>
+    <text class="m" x="1120" y="686" font-size="10.5" fill="#94A3B8">0</text>
+  </g>
+  <g class="pr">
+    <text class="t blink" x="560" y="686" font-size="10.5" font-weight="700" fill="#D97706">Provisioning</text>
+    <text class="m" x="800" y="686" font-size="10.5" fill="#D97706">i-0b55…7c2</text>
+    <text class="m" x="960" y="686" font-size="10.5" fill="#94A3B8">—</text>
+    <text class="m" x="1040" y="686" font-size="10.5" fill="#94A3B8">—</text>
+    <text class="m" x="1120" y="686" font-size="10.5" fill="#94A3B8">0</text>
+  </g>
+</svg>

@@ -1,0 +1,166 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 660" width="1200" height="660" role="img" aria-label="InfraRevive architecture: GitHub and DockerHub outside AWS, a Jenkins control-plane EC2 running Jenkins, Prometheus, Alertmanager and the dashboard, and a Kubernetes cluster of one master and three workers inside a VPC">
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#070B14"/>
+      <stop offset="100%" stop-color="#0B1222"/>
+    </linearGradient>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#64748B"/>
+    </marker>
+    <marker id="arG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#34D399"/>
+    </marker>
+    <marker id="arR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#F87171"/>
+    </marker>
+    <style>
+      .t   { font-family:'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif; }
+      .m   { font-family:'Consolas','SF Mono','DejaVu Sans Mono',monospace; }
+      .box { font-size:13px; font-weight:700; }
+      .sm  { font-size:10.5px; }
+      .zn  { font-size:11px; font-weight:700; letter-spacing:2.4px; }
+      .fl  { font-size:10px; letter-spacing:.4px; }
+      .flow { stroke-dasharray:7 6; animation: fl 1.1s linear infinite; }
+      @keyframes fl { to { stroke-dashoffset:-13; } }
+      .flowRev { stroke-dasharray:7 6; animation: flr 1.1s linear infinite; }
+      @keyframes flr { to { stroke-dashoffset:13; } }
+      .slow { animation-duration:2.2s; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="660" fill="url(#bg3)"/>
+
+  <!-- ===== outside AWS ===== -->
+  <text class="t zn" x="40" y="46" fill="#5C6B88">OUTSIDE</text>
+
+  <g transform="translate(40,70)">
+    <rect width="164" height="62" rx="12" fill="#101827" stroke="#334155"/>
+    <text class="t box" x="16" y="26" fill="#E2E8F0">GitHub</text>
+    <text class="m sm" x="16" y="45" fill="#94A3B8">push &#8594; webhook</text>
+  </g>
+
+  <g transform="translate(40,164)">
+    <rect width="164" height="62" rx="12" fill="#101827" stroke="#334155"/>
+    <text class="t box" x="16" y="26" fill="#E2E8F0">DockerHub</text>
+    <text class="m sm" x="16" y="45" fill="#94A3B8">image registry</text>
+  </g>
+
+  <g transform="translate(40,470)">
+    <rect width="164" height="62" rx="12" fill="#101827" stroke="#334155"/>
+    <text class="t box" x="16" y="26" fill="#E2E8F0">Your browser</text>
+    <text class="m sm" x="16" y="45" fill="#94A3B8">the dashboard</text>
+  </g>
+
+  <!-- ===== AWS VPC ===== -->
+  <rect x="248" y="58" width="912" height="562" rx="20" fill="#0E1524" stroke="#F59E0B" stroke-opacity=".35" stroke-dasharray="7 6"/>
+  <text class="t zn" x="272" y="84" fill="#B45309">AWS &#183; us-east-1 &#183; VPC 172.20.0.0/16 &#183; PUBLIC SUBNET</text>
+
+  <!-- Jenkins EC2 -->
+  <rect x="276" y="104" width="332" height="486" rx="16" fill="#0D1526" stroke="#4F46E5" stroke-opacity=".38"/>
+  <text class="t zn" x="296" y="130" fill="#818CF8" font-size="10">CONTROL PLANE EC2</text>
+
+  <g transform="translate(296,144)">
+    <rect width="292" height="82" rx="12" fill="#141C30" stroke="#4F46E5" stroke-opacity=".45"/>
+    <text class="t box" x="16" y="27" fill="#C7D2FE">Jenkins</text>
+    <text class="m sm" x="16" y="46" fill="#94A3B8">pipeline 1 &#183; build, push, deploy</text>
+    <text class="m sm" x="16" y="63" fill="#94A3B8">pipeline 2 &#183; detect, replace, rejoin</text>
+    <circle cx="272" cy="20" r="4.5" fill="#34D399"><animate attributeName="opacity" values="1;.25;1" dur="1.8s" repeatCount="indefinite"/></circle>
+  </g>
+
+  <g transform="translate(296,242)">
+    <rect width="292" height="70" rx="12" fill="#141C30" stroke="#D97706" stroke-opacity=".40"/>
+    <text class="t box" x="16" y="27" fill="#FCD34D">Prometheus</text>
+    <text class="m sm" x="16" y="46" fill="#94A3B8">scrape 5s &#183; alert.rules.yml</text>
+  </g>
+
+  <g transform="translate(296,328)">
+    <rect width="292" height="70" rx="12" fill="#141C30" stroke="#D97706" stroke-opacity=".40"/>
+    <text class="t box" x="16" y="27" fill="#FCD34D">Alertmanager</text>
+    <text class="m sm" x="16" y="46" fill="#94A3B8">NodeDown &#8594; generic webhook</text>
+  </g>
+
+  <g transform="translate(296,414)">
+    <rect width="292" height="82" rx="12" fill="#141C30" stroke="#0891B2" stroke-opacity=".45"/>
+    <text class="t box" x="16" y="27" fill="#A5F3FC">NGINX + Dashboard API</text>
+    <text class="m sm" x="16" y="46" fill="#94A3B8">reverse proxy, same-origin /api/*</text>
+    <text class="m sm" x="16" y="63" fill="#94A3B8">Flask reads K8s API + AWS API</text>
+  </g>
+
+  <text class="m sm" x="296" y="528" fill="#475569">:8080 jenkins &#183; :9090 prom &#183; :9093 alerts &#183; :80 dashboard</text>
+  <text class="m sm" x="296" y="546" fill="#475569">terraform &#183; ansible &#183; kubectl &#183; aws cli</text>
+
+  <!-- Kubernetes cluster -->
+  <rect x="668" y="104" width="468" height="486" rx="16" fill="#0D1526" stroke="#10B981" stroke-opacity=".34"/>
+  <text class="t zn" x="688" y="130" fill="#34D399" font-size="10">KUBERNETES 1.29 &#183; FLANNEL CNI</text>
+
+  <g transform="translate(688,144)">
+    <rect width="428" height="76" rx="12" fill="#141C30" stroke="#10B981" stroke-opacity=".45"/>
+    <text class="t box" x="16" y="27" fill="#6EE7B7">Master node</text>
+    <text class="m sm" x="16" y="46" fill="#94A3B8">kube-apiserver, scheduler, controller-manager</text>
+    <text class="m sm" x="16" y="63" fill="#94A3B8">issues kubeadm join tokens &#183; node-exporter</text>
+  </g>
+
+  <g transform="translate(688,238)">
+    <rect width="428" height="66" rx="12" fill="#141C30" stroke="#334155"/>
+    <text class="t box" x="16" y="26" fill="#E2E8F0">Worker 0</text>
+    <text class="m sm" x="16" y="45" fill="#94A3B8">frontend &#183; flask-api &#183; node-exporter :9100</text>
+    <circle cx="408" cy="20" r="4.5" fill="#34D399"/>
+  </g>
+
+  <g transform="translate(688,320)">
+    <rect width="428" height="66" rx="12" fill="#141C30" stroke="#334155"/>
+    <text class="t box" x="16" y="26" fill="#E2E8F0">Worker 1</text>
+    <text class="m sm" x="16" y="45" fill="#94A3B8">mysql (PV) &#183; node-exporter :9100</text>
+    <circle cx="408" cy="20" r="4.5" fill="#34D399"/>
+  </g>
+
+  <g transform="translate(688,402)">
+    <rect width="428" height="66" rx="12" fill="#141C30" stroke="#F87171" stroke-opacity=".45"/>
+    <text class="t box" x="16" y="26" fill="#FCA5A5">Worker 2</text>
+    <text class="m sm" x="16" y="45" fill="#94A3B8">dead &#8594; destroyed &#8594; recreated &#8594; rejoined</text>
+    <circle cx="408" cy="20" r="4.5" fill="#F87171"><animate attributeName="opacity" values="1;.2;1" dur="1.2s" repeatCount="indefinite"/></circle>
+  </g>
+
+  <text class="m sm" x="688" y="510" fill="#475569">pods reschedule automatically once the replacement reports Ready</text>
+  <text class="m sm" x="688" y="528" fill="#475569">NodePort :30080 frontend &#183; :30500 api</text>
+
+  <!-- ===== FLOWS ===== -->
+
+  <!-- GitHub -> Jenkins -->
+  <path class="flow" d="M204,101 H296" fill="none" stroke="#64748B" stroke-width="1.8" marker-end="url(#ar)"/>
+  <text class="m fl" x="250" y="94" text-anchor="middle" fill="#64748B">webhook</text>
+
+  <!-- Jenkins <-> DockerHub -->
+  <path class="flowRev" d="M296,196 H240 V195 H204" fill="none" stroke="#64748B" stroke-width="1.8" marker-end="url(#ar)"/>
+  <text class="m fl" x="250" y="188" text-anchor="middle" fill="#64748B">push image</text>
+
+  <!-- Browser -> NGINX -->
+  <path class="flow" d="M204,501 H296" fill="none" stroke="#22D3EE" stroke-opacity=".7" stroke-width="1.8" marker-end="url(#ar)"/>
+  <text class="m fl" x="250" y="494" text-anchor="middle" fill="#22D3EE">https</text>
+
+  <!-- Jenkins -> Master (deploy) -->
+  <path class="flow" d="M588,176 H688" fill="none" stroke="#818CF8" stroke-width="1.8" marker-end="url(#ar)"/>
+  <text class="m fl" x="638" y="168" text-anchor="middle" fill="#818CF8">kubectl</text>
+
+  <!-- Workers -> Prometheus (scrape) -->
+  <path class="flowRev" d="M688,268 H648 V282 H588" fill="none" stroke="#FBBF24" stroke-opacity=".75" stroke-width="1.6" marker-end="url(#ar)"/>
+  <path class="flowRev" d="M688,350 H636 V292 H588" fill="none" stroke="#FBBF24" stroke-opacity=".55" stroke-width="1.6" marker-end="url(#ar)"/>
+  <path class="flowRev" d="M688,432 H624 V302 H588" fill="none" stroke="#FBBF24" stroke-opacity=".40" stroke-width="1.6" marker-end="url(#ar)"/>
+  <text class="m fl" x="638" y="240" text-anchor="middle" fill="#FBBF24">scrape :9100</text>
+
+  <!-- Prometheus -> Alertmanager -->
+  <path class="flow" d="M442,312 V328" fill="none" stroke="#F87171" stroke-width="1.8" marker-end="url(#arR)"/>
+  <text class="m fl" x="452" y="325" fill="#F87171">NodeDown</text>
+
+  <!-- Alertmanager -> Jenkins (recovery trigger) -->
+  <path class="flow" d="M296,363 H268 V190 H296" fill="none" stroke="#F87171" stroke-width="1.8" marker-end="url(#arR)"/>
+  <text class="m fl" x="264" y="290" text-anchor="end" fill="#F87171" transform="rotate(-90 264 290)">trigger recovery</text>
+
+  <!-- Jenkins -> dead worker (terraform + ansible) -->
+  <path class="flow slow" d="M330,226 V570 H1128 V468" fill="none" stroke="#34D399" stroke-width="1.9" marker-end="url(#arG)"/>
+  <text class="m fl" x="700" y="586" text-anchor="middle" fill="#34D399">terraform destroy &#183; terraform apply &#183; ansible configure &#183; kubeadm join</text>
+
+  <!-- legend -->
+  <text class="m fl" x="40" y="608" fill="#475569">S3 &#183; infrarevive-tfstate holds the Terraform state shared by your laptop and the recovery pipeline</text>
+  <text class="m fl" x="40" y="626" fill="#475569">IAM instance profile lets the Jenkins EC2 call the EC2 API without static credentials</text>
+</svg>

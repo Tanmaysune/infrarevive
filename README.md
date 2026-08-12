@@ -1,254 +1,208 @@
-# INFRAREVIVE — Dead Server Recovery System
+<div align="center">
 
-A production-grade DevOps platform that **automatically detects, destroys, and replaces failed Kubernetes worker nodes on AWS** — with zero human intervention and a recovery time under 5 minutes.
+<img src="docs/assets/banner.svg" alt="InfraRevive — Dead Server Recovery System" width="100%">
 
-The system combines **Terraform** (infrastructure as code), **Ansible** (configuration management), **Jenkins** (CI/CD + recovery pipelines), **Prometheus + Alertmanager** (monitoring + alerting), and a **real-time dark monitoring dashboard** that shows live AWS, Kubernetes, and Prometheus metrics.
+<br>
 
----
+<img src="https://img.shields.io/badge/Terraform-1.6+-7B42BC?style=flat-square&logo=terraform&logoColor=white" alt="Terraform">
+<img src="https://img.shields.io/badge/Ansible-core-EE0000?style=flat-square&logo=ansible&logoColor=white" alt="Ansible">
+<img src="https://img.shields.io/badge/Jenkins-pipelines-D24939?style=flat-square&logo=jenkins&logoColor=white" alt="Jenkins">
+<img src="https://img.shields.io/badge/Kubernetes-1.29-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="Kubernetes">
+<img src="https://img.shields.io/badge/Prometheus-monitoring-E6522C?style=flat-square&logo=prometheus&logoColor=white" alt="Prometheus">
+<img src="https://img.shields.io/badge/AWS-EC2%20%7C%20VPC%20%7C%20S3-FF9900?style=flat-square&logo=amazonwebservices&logoColor=white" alt="AWS">
+<img src="https://img.shields.io/badge/Docker-images-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker">
+<img src="https://img.shields.io/badge/Flask-API-000000?style=flat-square&logo=flask&logoColor=white" alt="Flask">
+<img src="https://img.shields.io/badge/NGINX-proxy-009639?style=flat-square&logo=nginx&logoColor=white" alt="NGINX">
 
-## Architecture Overview
+<br><br>
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        NORMAL CI/CD PIPELINE                            │
-│                                                                         │
-│  Developer → GitHub → Webhook → Jenkins Pipeline 1 (CI/CD)             │
-│       → Docker Build → Push to DockerHub → Deploy to Kubernetes         │
-│       → Running Application (NGINX + Flask + MySQL)                     │
-└─────────────────────────────────────────────────────────────────────────┘
+**When a Kubernetes worker node dies, nobody gets paged.**<br>
+The cluster notices, tears the dead machine down, builds a new one, configures it,
+puts it back in the cluster, and reschedules the workload — in under five minutes,
+with no human touching anything.
 
-┌─────────────────────────────────────────────────────────────────────────┐
-│                      AUTOMATIC RECOVERY PIPELINE                        │
-│                                                                         │
-│  Worker Node Fails                                                      │
-│       → Prometheus detects (node-exporter down)                         │
-│       → Alertmanager triggers webhook                                   │
-│       → Jenkins Pipeline 2 (Recovery) starts                            │
-│       → Terraform destroys dead EC2                                     │
-│       → Terraform creates new EC2                                       │
-│       → Ansible configures node (Docker, kubeadm, kubelet, kubectl)     │
-│       → Node joins Kubernetes cluster                                    │
-│       → Pods automatically rescheduled                                  │
-│       → Recovery Complete (< 5 minutes)                                  │
-└─────────────────────────────────────────────────────────────────────────┘
+</div>
 
-┌─────────────────────────────────────────────────────────────────────────┐
-│                    REAL-TIME MONITORING DASHBOARD                       │
-│                                                                         │
-│  Dark professional UI served via NGINX on Jenkins EC2                   │
-│  Data sources: Prometheus API · Kubernetes API · AWS API ·              │
-│                Jenkins API · Alertmanager API · Node Exporter           │
-│  No dummy data — everything is real.                                    │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+<br>
 
 ---
 
-## Folder Structure
+## What this is
+
+InfraRevive is a self-healing infrastructure platform built on AWS. Most monitoring
+setups stop at *telling you* something broke. This one closes the loop: detection
+feeds straight into an automated repair pipeline that provisions a genuine
+replacement machine and rejoins it to the cluster.
+
+Three things make it work together:
+
+- **A real cluster, not a simulation.** Five EC2 instances in a VPC built by
+  Terraform, a Kubernetes cluster stood up with `kubeadm` and Flannel by Ansible,
+  and a three-tier application (NGINX, Flask, MySQL) actually running on it.
+- **Detection wired to action.** Prometheus scrapes node-exporter every five
+  seconds. When a node stops answering for thirty, Alertmanager fires a webhook
+  straight into a Jenkins recovery pipeline — no email, no dashboard someone has to
+  be watching.
+- **Surgical repair.** The pipeline destroys and recreates *only* the dead worker
+  by its Terraform index. Healthy nodes are never touched, and state lives in S3 so
+  the pipeline and your laptop always agree on what exists.
+
+<br>
+
+## See it running
+
+The dashboard is served by NGINX on the Jenkins box and pulls live data from the
+Prometheus, Kubernetes, AWS, Jenkins and Alertmanager APIs. Nothing on it is mocked.
+Below is what a failure and recovery actually look like as they happen:
+
+<div align="center">
+<img src="docs/assets/dashboard-demo.svg" alt="InfraRevive dashboard cycling through a healthy cluster, a node failure, and an automatic recovery" width="100%">
+</div>
+
+Four views: the overview above, a full sixteen-column node table, a recovery
+timeline showing each pipeline stage with timestamps, and an active alerts table.
+Light and dark themes, and a click on any node opens its conditions, pods, capacity
+and EC2 metadata.
+
+<br>
+
+## The recovery loop
+
+<div align="center">
+<img src="docs/assets/recovery-flow.svg" alt="The eight stages of automatic recovery, from node failure to the replacement node reporting Ready" width="100%">
+</div>
+
+The pipeline identifies the dead node by matching **private** IPs against
+`kubectl get nodes` — kubelet registers with the private IP, and public IPs change
+on every stop/start, so matching on public IPs is the bug that eats a weekend.
+
+<br>
+
+## Architecture
+
+<div align="center">
+<img src="docs/assets/architecture.svg" alt="System architecture: GitHub and DockerHub outside AWS, a control-plane EC2 running Jenkins, Prometheus, Alertmanager and the dashboard, and a four-node Kubernetes cluster inside the VPC" width="100%">
+</div>
+
+Two pipelines run on the same Jenkins instance:
+
+**Pipeline 1 — CI/CD.** A push to `main` fires a GitHub webhook. Jenkins builds the
+Flask and NGINX images, pushes them to DockerHub, and rolls them out to Kubernetes.
+
+**Pipeline 2 — Recovery.** Triggered by Alertmanager, never by a person. It removes
+the ghost node object, runs a targeted `terraform destroy` and `terraform apply`,
+updates the Prometheus scrape targets, waits for SSH on the new instance,
+regenerates the Ansible inventory, pulls a fresh join token from the master, runs
+the worker playbook, and verifies the node reports `Ready` with pods rescheduled.
+
+<br>
+
+## Stack
+
+| Layer | Technology | Role |
+|---|---|---|
+| Cloud | AWS EC2, VPC, IAM, S3 | Five instances in one public subnet, remote Terraform state |
+| Infrastructure | Terraform 1.6+ | VPC, subnets, security groups, IAM, EC2, S3 backend |
+| Configuration | Ansible | Idempotent node provisioning — containerd, kubeadm, kubelet, node-exporter |
+| CI/CD | Jenkins | Deploy pipeline and recovery pipeline |
+| Orchestration | Kubernetes 1.29 + Flannel | Scheduling, self-healing, pod rescheduling |
+| Monitoring | Prometheus + node-exporter | CPU, RAM, disk, network, node liveness at 5s resolution |
+| Alerting | Alertmanager | Webhook trigger into the recovery pipeline |
+| Dashboard | Vanilla HTML/CSS/JS + Flask | Real-time UI, no framework, no build step |
+| Application | NGINX, Flask, MySQL 8.0 | Student Result Portal on NodePort services |
+| Registry | DockerHub | Image storage between build and deploy |
+
+<br>
+
+## Getting started
+
+Two guides, depending on where you are:
+
+| | |
+|---|---|
+| **[INSTALLATION.md](INSTALLATION.md)** | First time on a fresh AWS account. Tools, key pair, state bucket, Terraform, Ansible, application deploy, Jenkins wiring, and a recovery drill to prove it works. |
+| **[STARTUP.md](STARTUP.md)** | Every session after that. Two commands, plus what `start-all.sh` repairs behind the scenes and how to check it came up clean. |
+
+The short version, once installed:
+
+```bash
+cd ~/project/infrarevive
+./start-all.sh          # bring the whole platform up
+./stop-all.sh           # put it to sleep, nothing destroyed
+```
+
+<br>
+
+## Repository layout
 
 ```
 infrarevive/
-├── ansible/                    # Ansible playbooks for node configuration
-│   ├── inventory.ini           # Auto-generated inventory with real EC2 IPs
-│   ├── setup-master.yml        # Master node: kubeadm init, Flannel, node-exporter
-│   └── setup-workers.yml       # Worker nodes: Docker, kubeadm join, node-exporter
-├── ansible.cfg                 # Ansible configuration (SSH, Python interpreter)
-├── app/                        # Flask backend API (Student Result Portal)
-│   ├── app.py                  # Flask app with /health, /result, /init-db endpoints
-│   ├── Dockerfile              # Python 3.11-slim based image
-│   └── requirements.txt        # flask, flask-cors, mysql-connector-python
-├── aws/                        # Bundled AWS CLI v2 installer (for Jenkins EC2)
-├── dashboard/                  # Real-time monitoring dashboard (dark UI)
-│   └── index.html              # Single-page app: cluster status, nodes, graphs, recovery
-├── dashboard-api/              # Backend API for dashboard (AWS + K8s data)
-│   ├── app.py                  # Flask API: /api/k8s/*, /api/aws/*, /api/system/*
-│   ├── requirements.txt        # flask, flask-cors
-│   ├── Dockerfile              # Container build option
-│   └── dashboard-api.service   # systemd unit for Jenkins EC2
-├── docker-compose.yml          # Local development: flask-api + frontend + mysql
-├── frontend/                   # NGINX-served static frontend
-│   ├── index.html              # Student Result Portal UI
-│   └── Dockerfile              # nginx:alpine based image
-├── Jenkinsfile-CICD            # Pipeline 1: Build → Push → Deploy (rolling update)
-├── Jenkinsfile-Recovery        # Pipeline 2: Detect → Destroy → Create → Configure → Join
-├── kubernetes/                 # Kubernetes manifests
-│   ├── namespace.yaml          # infrarevive namespace
-│   ├── configmap.yaml          # Non-sensitive app config (DB_HOST, DB_USER, etc.)
-│   ├── secret.yaml             # Sensitive credentials (base64-encoded)
-│   ├── deployment.yaml         # flask-api, frontend, mysql deployments
-│   ├── service.yaml            # NodePort + ClusterIP services
-│   ├── persistent-volume.yaml  # PV + PVC for MySQL
-│   ├── ingress.yaml            # Ingress routing (frontend + API)
-│   └── kube-flannel.yaml       # Flannel CNI manifest
-├── nginx/                      # NGINX reverse proxy config (dashboard + API proxies)
-│   └── infrarevive-nginx.conf  # Proxies: /api/jenkins, /api/prometheus, /api/alertmanager, /api/dashboard
-├── prometheus/                 # Monitoring configuration
-│   ├── prometheus.yml          # Scrape config (node-exporter, flask-api)
-│   ├── alert.rules.yml         # NodeDown, InstanceDown, HighCPU, HighMemory, DiskFull, NodeNotReady
-│   └── alertmanager.yml        # Webhook to Jenkins recovery trigger
-├── terraform/                  # AWS infrastructure as code
-│   ├── main.tf                 # VPC, subnets, SGs, IAM, EC2, S3 backend
-│   ├── variables.tf            # Region, instance types, AMI, key name, worker count
-│   └── outputs.tf              # Public/private IPs, instance IDs
-├── docs/                       # Documentation
-│   ├── ARCHITECTURE.md
-│   ├── DEPLOYMENT.md
-│   ├── SETUP.md
-│   ├── RECOVERY-FLOW.md
-│   ├── DASHBOARD.md
-│   ├── API.md
-│   ├── PIPELINES.md
-│   └── TROUBLESHOOTING.md
-├── .env                        # Auto-generated IPs (created by scripts)
-├── start-all.sh                # Start all EC2 + configure + deploy everything
-├── stop-all.sh                 # Stop all EC2 instances
-├── setup-config.sh             # One-time config: inventory, prometheus, dashboard
-├── deploy-dashboard.sh         # Standalone dashboard + API redeploy
-└── README.md                   # This file
+├── terraform/              VPC, subnets, security groups, IAM, EC2, S3 backend
+├── ansible/                setup-master.yml, setup-workers.yml, ansible.cfg
+├── kubernetes/             namespace, config, secret, PV, deployments, services, flannel
+├── app/                    Flask API — the Student Result Portal backend
+├── frontend/               NGINX-served static UI
+├── dashboard/              Real-time monitoring dashboard (single page, no build step)
+├── dashboard-api/          Flask backend that reads the Kubernetes and AWS APIs
+├── prometheus/             Scrape config, alert rules, Alertmanager config
+├── nginx/                  Reverse proxy — keeps every dashboard API call same-origin
+├── docs/                   Architecture, deployment, recovery flow, API, troubleshooting
+├── Jenkinsfile-CICD        Pipeline 1 — build, push, rolling update
+├── Jenkinsfile-Recovery    Pipeline 2 — detect, destroy, recreate, configure, rejoin
+├── start-all.sh            Start and fully repair the platform
+├── stop-all.sh             Stop everything, preserve all state
+├── setup-config.sh         Fill live IPs into inventory, Prometheus and the dashboard
+└── deploy-dashboard.sh     Redeploy the dashboard and its API only
 ```
 
----
-
-## Technology Stack
-
-| Component          | Technology                        | Purpose                              |
-|--------------------|-----------------------------------|--------------------------------------|
-| Cloud              | AWS EC2 (us-east-1)               | Hosts Jenkins, K8s master, workers   |
-| Infrastructure     | Terraform 1.6+                    | VPC, EC2, IAM, S3 state              |
-| Configuration      | Ansible                           | Node provisioning (Docker, K8s)      |
-| CI/CD              | Jenkins                           | Pipeline 1 (deploy) + Pipeline 2 (recovery) |
-| Container Registry | DockerHub                         | Image storage & distribution         |
-| Orchestration      | Kubernetes 1.29 + Flannel CNI     | Container scheduling & self-healing  |
-| Monitoring         | Prometheus + Node Exporter        | CPU, RAM, Disk, Network metrics      |
-| Alerting           | Alertmanager                      | Webhook → Jenkins recovery trigger   |
-| Dashboard          | HTML/CSS/JS (dark theme) + Flask  | Real-time monitoring UI              |
-| App Backend        | Flask (Python)                    | Student Result Portal API            |
-| App Frontend       | NGINX (static)                    | Student Result Portal UI             |
-| App Database       | MySQL 8.0                         | Persistent storage                   |
-| Reverse Proxy      | NGINX                             | Dashboard + API proxy routing        |
-
----
-
-## Prerequisites
-
-1. **AWS Account** with an EC2 key pair named `infrarevive-key`
-2. **DockerHub account** for image pushes
-3. **GitHub repository** with webhook access
-4. **Local machine** with: Terraform, Ansible, AWS CLI, kubectl, SSH key
-5. **S3 bucket** `infrarevive-tfstate` (created automatically by Terraform)
-
----
-
-## Quick Start
-
-```bash
-# 1. Provision AWS infrastructure
-cd terraform
-terraform init
-terraform apply -auto-approve
-
-# 2. Get IPs and configure everything
-cd ..
-./setup-config.sh
-
-# 3. Configure Kubernetes master + workers with Ansible
-ansible-playbook -i ansible/inventory.ini ansible/setup-master.yml
-ansible-playbook -i ansible/inventory.ini ansible/setup-workers.yml
-
-# 4. Deploy the application to Kubernetes
-kubectl apply -f kubernetes/namespace.yaml
-kubectl apply -f kubernetes/configmap.yaml
-kubectl apply -f kubernetes/secret.yaml
-kubectl apply -f kubernetes/persistent-volume.yaml
-kubectl apply -f kubernetes/deployment.yaml
-kubectl apply -f kubernetes/service.yaml
-
-# 5. Start all services (Prometheus, Alertmanager, Dashboard, Dashboard API)
-./start-all.sh
-```
-
-**Access points after start:**
-- Dashboard: `http://<JENKINS_IP>/infrarevive/`
-- Jenkins: `http://<JENKINS_IP>:8080`
-- Prometheus: `http://<JENKINS_IP>:9090`
-- App: `http://<WORKER_IP>:30080`
-- API: `http://<WORKER_IP>:30500`
-
----
-
-## How Recovery Works
-
-When a worker node dies:
-
-1. **Prometheus** detects `up{job="node-exporter"} == 0` for 30 seconds
-2. **Alertmanager** fires `NodeDown` alert and sends webhook to Jenkins
-3. **Jenkins Pipeline 2** (Recovery) triggers automatically:
-   - Identifies which worker is dead (matches private IPs against `kubectl get nodes`)
-   - Deletes the ghost node object from Kubernetes
-   - `terraform destroy -target=aws_instance.k8s_workers[N]` — destroys dead EC2
-   - `terraform apply -target=aws_instance.k8s_workers[N]` — creates fresh EC2
-   - Updates Prometheus scrape targets with new IP
-   - Waits for SSH on the new instance
-   - Regenerates Ansible inventory with new IP
-   - Gets fresh `kubeadm token create --print-join-command` from master
-   - Runs Ansible `setup-workers.yml --limit <new_ip>` (Docker, containerd, kubeadm, kubelet, kubectl, node-exporter)
-   - Verifies node reports `Ready` in Kubernetes
-   - Verifies pods are rescheduled and app is running
-4. **Total recovery time: under 5 minutes, fully automatic**
-
----
-
-## Dashboard
-
-The dashboard is a **dark-themed single-page application** with real-time data from:
-
-- **Prometheus API** — CPU, RAM, Disk, Network metrics (range queries for graphs)
-- **Kubernetes API** (via dashboard-api) — node details, pod counts, cluster events
-- **AWS API** (via dashboard-api) — EC2 instance IDs, states, availability zones
-- **Jenkins API** — recovery pipeline build status and history
-- **Alertmanager API** — active alerts and severity counts
-
-**Views:**
-- **Dashboard** — Cluster status bar, service cards, live metric graphs, alert summary, cluster events, recovery history
-- **Cluster Nodes** — Full node table (16 columns: name, role, status, IPs, instance ID, AZ, EC2 state, CPU/RAM/Disk %, pods, versions, uptime)
-- **Recovery** — Timeline of recovery pipeline stages with timestamps + full history table
-- **Alerts** — Active alerts table with severity, instance, state, and summary
-
-Click any node in the table to see a detailed modal with conditions, pods, capacity, and all metadata.
-
----
+<br>
 
 ## Documentation
 
-Detailed documentation is in the [`docs/`](docs/) folder:
+| Document | What's in it |
+|---|---|
+| [Architecture](docs/ARCHITECTURE.md) | Component design and how the pieces talk |
+| [Setup](docs/SETUP.md) | Prerequisites and initial environment |
+| [Deployment](docs/DEPLOYMENT.md) | Phase-by-phase production deployment |
+| [Recovery Flow](docs/RECOVERY-FLOW.md) | The recovery pipeline, stage by stage |
+| [Pipelines](docs/PIPELINES.md) | Both Jenkinsfiles explained |
+| [Dashboard](docs/DASHBOARD.md) | Views, data sources, refresh behaviour |
+| [API](docs/API.md) | Every endpoint across the dashboard API, Flask app and proxies |
+| [Debian Setup](docs/DEBIAN-SETUP.md) | Full walkthrough on Debian/Ubuntu hosts |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | The failures that actually happen, and the fixes |
 
-- [Architecture](docs/ARCHITECTURE.md) — System design and component interactions
-- [Deployment Guide](docs/DEPLOYMENT.md) — Step-by-step production deployment
-- [Setup Guide](docs/SETUP.md) — Initial environment setup
-- [Recovery Flow](docs/RECOVERY-FLOW.md) — Detailed recovery pipeline walkthrough
-- [Dashboard Guide](docs/DASHBOARD.md) — Dashboard features and data sources
-- [API Documentation](docs/API.md) — All API endpoints (dashboard-api, Flask, proxies)
-- [Pipeline Documentation](docs/PIPELINES.md) — Jenkins CI/CD + Recovery pipelines
-- [Troubleshooting](docs/TROUBLESHOOTING.md) — Common issues and fixes
+<br>
+
+## Engineering decisions worth explaining
+
+**Match nodes on private IPs, not public ones.** Kubelet registers itself with the
+private IP. EC2 hands out a new public IP on every stop/start. The recovery pipeline
+matches on private IPs so it always deletes the right node object.
+
+**Targeted Terraform, not a full apply.** `-target=aws_instance.k8s_workers[N]`
+touches exactly the dead worker. A blanket apply during an incident is how you turn
+one dead node into three.
+
+**Instance IDs come from Terraform state, not AWS tags.** Terminated instances stay
+visible in the EC2 API for up to an hour and keep their `Name` tag, so tag lookups
+silently match ghosts after a destroy/recreate cycle. State only ever tracks the
+resource that actually exists.
+
+**Prometheus scrapes private IPs.** Public IPs churn; private IPs survive
+stop/start. Scraping public IPs means alerting quietly breaks every morning.
+
+**A dashboard instead of email alerts.** No SMTP, no app passwords, no alert fatigue
+— just a live view that shows what the system is doing while it repairs itself.
+
+**A reverse proxy in front of everything.** Browsers can't sign AWS requests or
+present Kubernetes client certs, and cross-origin calls to Prometheus and Jenkins
+would be blocked anyway. NGINX makes every call same-origin and a small Flask
+service does the privileged reads.
+
+<br>
 
 ---
 
-## Key Design Decisions
-
-1. **No Puppet** — Configuration management uses only Ansible (idempotent playbooks)
-2. **No Email Alerts** — Replaced with a real-time monitoring dashboard (no SMTP/Gmail)
-3. **Terraform targeted destroy/apply** — Only the dead worker index is touched, never healthy nodes
-4. **Private IP matching** — kubelet registers with private IP; recovery pipeline matches on this, not public IP
-5. **NGINX reverse proxy** — All API calls are same-origin via nginx, avoiding CORS issues
-6. **Dashboard API backend** — Browser can't call AWS (SigV4) or K8s (certs) directly; Flask proxy handles it
-
----
-
-## Project Scripts
-
-| Script               | Purpose                                              |
-|----------------------|------------------------------------------------------|
-| `start-all.sh`       | Start EC2 instances, configure, deploy app + dashboard + API |
-| `stop-all.sh`        | Stop all EC2 instances (state preserved in S3)       |
-| `setup-config.sh`    | One-time: fill inventory, prometheus config, deploy dashboard |
-| `deploy-dashboard.sh`| Standalone: redeploy dashboard + API only             |
+<div align="center">
+<sub>Built as a final-year B.Tech project — a working, self-healing production pattern rather than a demo.</sub>
+</div>
